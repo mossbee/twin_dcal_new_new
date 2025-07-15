@@ -1,0 +1,77 @@
+data:
+  augmentation: true
+  color_jitter: true
+  data_dir: ./data
+  hard_negative_ratio: 0.3
+  horizontal_flip: true
+  image_size: 224
+  normalize_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  normalize_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  num_workers: 4
+  patch_size: 16
+  pin_memory: true
+  positive_ratio: 0.5
+  random_rotation: 10.0
+  soft_negative_ratio: 0.2
+  test_info_file: test_dataset_infor.json
+  test_pairs_file: test_twin_pairs.json
+  train_info_file: train_dataset_infor.json
+  train_pairs_file: train_twin_pairs.json
+  train_split: 0.8
+  val_split: 0.2
+dcal:
+  attention_dropout: 0.1
+  local_ratio_fgvc: 0.1
+  local_ratio_reid: 0.3
+  loss_weight_glca: 1.0
+  loss_weight_pwca: 1.0
+  loss_weight_sa: 1.0
+  num_glca_blocks: 1
+  num_pwca_blocks: 12
+  num_sa_blocks: 12
+  use_attention_rollout: true
+  use_dynamic_loss: true
+model:
+  backbone: vit_base_patch16_224
+  dropout: 0.1
+  embed_dim: 768
+  num_classes: 2
+  num_heads: 12
+  num_layers: 12
+  pretrained: true
+  pretrained_path: null
+system:
+  auto_resume: true
+  checkpoint_dir: ./checkpoints
+  device: cuda
+  distributed: false
+  experiment_name: dcal_twin_verification
+  max_checkpoints: 5
+  num_gpus: 1
+  resume_from: null
+  run_name: null
+  save_interval: 1
+  seed: 42
+  timeout_hours: null
+  tracking: none
+training:
+  batch_size: 16
+  epochs: 100
+  gradient_clip: 1.0
+  learning_rate: 0.0005
+  momentum: 0.9
+  optimizer: adam
+  scheduler: cosine
+  scheduler_factor: 0.5
+  scheduler_patience: 10
+  use_amp: true
+  val_interval: 1
+  val_metric: roc_auc
+  warmup_epochs: 10
+  weight_decay: 0.05
