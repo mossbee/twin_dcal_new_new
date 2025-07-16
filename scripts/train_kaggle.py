@@ -209,15 +209,16 @@ def create_model(config: dict) -> SiameseDCAL:
     
     # Create DCAL encoder
     dcal_encoder = DCALEncoder(
-        backbone=backbone,
-        embed_dim=model_config['embed_dim'],
-        num_heads=model_config['num_heads'],
+        backbone_config=model_config['backbone'],  # Pass the backbone config name
         num_sa_blocks=dcal_config['num_sa_blocks'],
         num_glca_blocks=dcal_config['num_glca_blocks'],
         num_pwca_blocks=dcal_config['num_pwca_blocks'],
-        local_ratio_fgvc=dcal_config['local_ratio_fgvc'],
-        local_ratio_reid=dcal_config['local_ratio_reid'],
-        dropout=model_config['dropout']
+        local_ratio=dcal_config['local_ratio_fgvc'],  # Use fgvc ratio as default
+        embed_dim=model_config['embed_dim'],
+        num_heads=model_config['num_heads'],
+        mlp_ratio=4.0,
+        dropout=model_config['dropout'],
+        use_dynamic_loss=dcal_config['use_dynamic_loss']
     )
     
     # Create Siamese DCAL model with default values for missing parameters
