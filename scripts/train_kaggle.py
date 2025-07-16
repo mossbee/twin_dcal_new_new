@@ -109,17 +109,18 @@ def create_model(config: dict) -> SiameseDCAL:
     model_config = config['model']
     data_config = config['data']
     dcal_config = config['dcal']
-    # Use 'depth' if present, else fallback to 'num_layers' for compatibility
-    depth = model_config.get('depth', model_config.get('num_layers'))
+    # Use 'num_layers' for VisionTransformer, fallback to 'depth' if needed
+    num_layers = model_config.get('num_layers', model_config.get('depth'))
     backbone = VisionTransformer(
         img_size=data_config['image_size'],
         patch_size=data_config['patch_size'],
         embed_dim=model_config['embed_dim'],
-        depth=depth,
+        num_layers=num_layers,
         num_heads=model_config['num_heads'],
         mlp_ratio=model_config.get('mlp_ratio', 4.0),
         dropout=model_config['dropout'],
-        pretrained=model_config.get('pretrained', True)
+        pretrained=model_config.get('pretrained', True),
+        pretrained_path=model_config.get('pretrained_path', None)
     )
     model = SiameseDCAL(
         backbone=backbone,
