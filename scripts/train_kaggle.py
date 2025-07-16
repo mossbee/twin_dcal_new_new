@@ -191,16 +191,18 @@ def get_default_kaggle_config() -> dict:
 def create_model(config: dict) -> SiameseDCAL:
     """Create the DCAL model."""
     model_config = config['model']
+    data_config = config['data']
+    dcal_config = config['dcal']
     
     # Create backbone
     backbone = VisionTransformer(
-        img_size=config['data']['image_size'],
-        patch_size=model_config['patch_size'],
+        img_size=data_config['image_size'],
+        patch_size=data_config['patch_size'],
         in_channels=3,
         embed_dim=model_config['embed_dim'],
-        depth=model_config['depth'],
+        depth=model_config['num_layers'],
         num_heads=model_config['num_heads'],
-        mlp_ratio=model_config['mlp_ratio'],
+        mlp_ratio=4.0,  # Default value for ViT
         dropout=model_config['dropout'],
         pretrained=model_config.get('pretrained', True)
     )
@@ -210,22 +212,22 @@ def create_model(config: dict) -> SiameseDCAL:
         backbone=backbone,
         embed_dim=model_config['embed_dim'],
         num_heads=model_config['num_heads'],
-        num_sa_blocks=model_config['num_sa_blocks'],
-        num_glca_blocks=model_config['num_glca_blocks'],
-        num_pwca_blocks=model_config['num_pwca_blocks'],
-        local_ratio_fgvc=model_config['local_ratio_fgvc'],
-        local_ratio_reid=model_config['local_ratio_reid'],
+        num_sa_blocks=dcal_config['num_sa_blocks'],
+        num_glca_blocks=dcal_config['num_glca_blocks'],
+        num_pwca_blocks=dcal_config['num_pwca_blocks'],
+        local_ratio_fgvc=dcal_config['local_ratio_fgvc'],
+        local_ratio_reid=dcal_config['local_ratio_reid'],
         dropout=model_config['dropout']
     )
     
-    # Create Siamese DCAL model
+    # Create Siamese DCAL model with default values for missing parameters
     siamese_model = SiameseDCAL(
         dcal_encoder=dcal_encoder,
-        similarity_function=model_config['similarity_function'],
-        feature_dim=model_config['feature_dim'],
+        similarity_function='cosine',  # Default value
+        feature_dim=model_config['embed_dim'],
         dropout=model_config['dropout'],
-        temperature=model_config['temperature'],
-        learnable_temperature=model_config['learnable_temperature']
+        temperature=0.07,  # Default value
+        learnable_temperature=True  # Default value
     )
     
     return siamese_model
@@ -239,31 +241,31 @@ def create_data_loaders(config: dict) -> tuple:
     # Create transforms
     train_transform = get_train_transforms(
         image_size=data_config['image_size'],
-        strong_augmentation=data_config.get('strong_augmentation', True)
+        strong_augmentation=data_config.get('augmentation', True)
     )
     val_transform = get_val_transforms(image_size=data_config['image_size'])
     
     # Create datasets
     train_dataset = TwinDataset(
-        dataset_info_path=data_config['train_dataset_info'],
-        twin_pairs_path=data_config['train_twin_pairs'],
-        data_root=data_config.get('data_root', ''),
+        dataset_info_path=data_config['train_info_file'],
+        twin_pairs_path=data_config['train_pairs_file'],
+        data_root=data_config['data_dir'],
         transform=train_transform,
         mode='train',
-        negative_ratio=data_config.get('negative_ratio', 1.0),
-        hard_negative_ratio=data_config.get('hard_negative_ratio', 0.3),
-        soft_negative_ratio=data_config.get('soft_negative_ratio', 0.2)
+        negative_ratio=1.0,  # Default value
+        hard_negative_ratio=data_config['hard_negative_ratio'],
+        soft_negative_ratio=data_config['soft_negative_ratio']
     )
     
     val_dataset = TwinDataset(
-        dataset_info_path=data_config['val_dataset_info'],
-        twin_pairs_path=data_config['val_twin_pairs'],
-        data_root=data_config.get('data_root', ''),
+        dataset_info_path=data_config['test_info_file'],
+        twin_pairs_path=data_config['test_pairs_file'],
+        data_root=data_config['data_dir'],
         transform=val_transform,
         mode='val',
-        negative_ratio=data_config.get('negative_ratio', 1.0),
-        hard_negative_ratio=data_config.get('hard_negative_ratio', 0.3),
-        soft_negative_ratio=data_config.get('soft_negative_ratio', 0.2)
+        negative_ratio=1.0,  # Default value
+        hard_negative_ratio=data_config['hard_negative_ratio'],
+        soft_negative_ratio=data_config['soft_negative_ratio']
     )
     
     # Create data loaders
@@ -271,8 +273,8 @@ def create_data_loaders(config: dict) -> tuple:
         train_dataset,
         batch_size=training_config['batch_size'],
         shuffle=True,
-        num_workers=training_config.get('num_workers', 2),
-        pin_memory=training_config.get('pin_memory', True),
+        num_workers=data_config['num_workers'],
+        pin_memory=data_config['pin_memory'],
         drop_last=True
     )
     
@@ -280,8 +282,8 @@ def create_data_loaders(config: dict) -> tuple:
         val_dataset,
         batch_size=training_config['batch_size'],
         shuffle=False,
-        num_workers=training_config.get('num_workers', 2),
-        pin_memory=training_config.get('pin_memory', True),
+        num_workers=data_config['num_workers'],
+        pin_memory=data_config['pin_memory'],
         drop_last=False
     )
     
