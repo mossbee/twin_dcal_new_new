@@ -479,7 +479,7 @@ class DCALLoss(nn.Module):
                     diversity_loss += torch.mean(similarity)
                     count += 1
                 else:
-                    print(f"[DEBUG] Skipping attention pair with shapes {a.shape} and {b.shape}")
+                    pass  # Skipping pairs with mismatched shapes (normal for multi-branch attention)
         if count > 0:
             return diversity_loss / count
         else:
