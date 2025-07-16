@@ -320,7 +320,6 @@ def main():
             trainer.val_history.append(val_metrics)
         logger.info("Saving final model...")
         checkpoint_manager.save_model_only(trainer.base_model, "final_model.pth")
-        tracker.log_model(trainer.base_model, "final_model")
         logger.info("Training completed successfully!")
         
     except KeyboardInterrupt:

@@ -48,11 +48,14 @@ model:
   pretrained: true
   pretrained_path: null
 system:
+  tracking: wandb
+  experiment_name: dcal_twin_verification
+  wandb_entity: hunchoquavodb-hanoi-university-of-science-and-technology
+  wandb_project: dcal_twin_july
   auto_resume: true
   checkpoint_dir: /kaggle/working/checkpoints
   device: cuda
   distributed: false
-  experiment_name: dcal_twin_verification
   max_checkpoints: 5
   num_gpus: 1
   resume_from: null
@@ -60,7 +63,6 @@ system:
   save_interval: 10
   seed: 42
   timeout_hours: 11
-  tracking: none
 training:
   batch_size: 30
   epochs: 100
