@@ -50,7 +50,7 @@ class SiameseDCAL(nn.Module):
         
         # Feature projection layer
         self.feature_projection = nn.Sequential(
-            nn.Linear(dcal_encoder.embed_dim, feature_dim),
+            nn.Linear(dcal_encoder.embed_dim * 2, feature_dim),  # embed_dim*2 for SA+GLCA concatenation
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(feature_dim, feature_dim)
@@ -104,9 +104,9 @@ class SiameseDCAL(nn.Module):
         output1 = self.dcal_encoder(img1, return_attention=return_attention)
         output2 = self.dcal_encoder(img2, return_attention=return_attention)
         
-        # Extract features from SA+GLCA (inference mode)
-        features1 = output1['features']  # [batch_size, embed_dim]
-        features2 = output2['features']  # [batch_size, embed_dim]
+        # Extract features using get_features method
+        features1 = self.dcal_encoder.get_features(img1)  # [batch_size, embed_dim*2]
+        features2 = self.dcal_encoder.get_features(img2)  # [batch_size, embed_dim*2]
         
         # Project features
         features1 = self.feature_projection(features1)

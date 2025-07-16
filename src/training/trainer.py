@@ -3,13 +3,22 @@ Comprehensive trainer for twin face verification using DCAL.
 Supports multi-GPU training, mixed precision, gradient accumulation, and validation.
 """
 
+import os
+import json
+import logging
+import time
+from typing import Dict, Any, Optional, List
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
 from torch.nn.parallel import DataParallel, DistributedDataParallel
-import torch.distributed as dist
+from torch.amp import GradScaler, autocast
+from tqdm import tqdm
+
+# TensorBoard support (optional)
 try:
     from torch.utils.tensorboard import SummaryWriter
     HAS_TENSORBOARD = True
@@ -17,13 +26,7 @@ except ImportError:
     HAS_TENSORBOARD = False
     SummaryWriter = None
 
-import os
-import time
-import logging
-from typing import Dict, Optional, List, Tuple, Any
 import numpy as np
-from tqdm import tqdm
-import json
 
 from .loss import DCALLoss, VerificationLoss, UncertaintyLoss
 from .metrics import MetricsTracker, calculate_verification_metrics
@@ -183,7 +186,7 @@ class Trainer:
         """Setup mixed precision training."""
         self.use_amp = self.config.get('use_amp', True)
         if self.use_amp:
-            self.scaler = GradScaler()
+            self.scaler = GradScaler('cuda')
             self.logger.info("Mixed precision training enabled")
         else:
             self.scaler = None
@@ -213,7 +216,7 @@ class Trainer:
             img1, img2, labels = img1.to(self.device), img2.to(self.device), labels.to(self.device)
             
             # Forward pass
-            with autocast(enabled=self.use_amp):
+            with autocast('cuda', enabled=self.use_amp):
                 output = self.model(img1, img2, return_attention=True)
                 
                 # Compute loss
@@ -290,7 +293,7 @@ class Trainer:
                 img1, img2, labels = img1.to(self.device), img2.to(self.device), labels.to(self.device)
                 
                 # Forward pass
-                with autocast(enabled=self.use_amp):
+                with autocast('cuda', enabled=self.use_amp):
                     output = self.model(img1, img2, return_attention=False)
                     
                     # Compute loss

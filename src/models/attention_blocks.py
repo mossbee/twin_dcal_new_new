@@ -232,15 +232,23 @@ class GlobalLocalCrossAttention(nn.Module):
         local_output = self.proj(local_output)
         local_output = self.proj_dropout(local_output)
         
-        # Create full output tensor
-        output = torch.zeros_like(x)
-        batch_indices = torch.arange(B, device=x.device).unsqueeze(1)
-        output[batch_indices, local_indices] = local_output
+        # Create full output tensor with same dtype as local_output
+        output = torch.zeros_like(x, dtype=local_output.dtype, device=local_output.device)
         
-        # Copy non-selected positions from input (residual)
+        # Use scatter_ to avoid dtype mismatch
+        batch_indices = torch.arange(B, device=x.device, dtype=torch.long).unsqueeze(1).expand(-1, num_local)
+        local_indices_expanded = local_indices.expand(B, -1)
+        
+        # Scatter local output to the correct positions
+        output.scatter_(1, local_indices_expanded.unsqueeze(-1).expand(-1, -1, C), local_output)
+        
+        # Copy non-selected positions from input (residual) - ensure same dtype
         mask = torch.ones(B, N, device=x.device, dtype=torch.bool)
-        mask[batch_indices, local_indices] = False
-        output[mask] = x[mask]
+        mask.scatter_(1, local_indices, torch.zeros_like(local_indices, dtype=torch.bool))
+        
+        # Convert x to same dtype as output for the mask operation
+        x_converted = x.to(dtype=output.dtype)
+        output = torch.where(mask.unsqueeze(-1), x_converted, output)
         
         if return_attention:
             return output, attn

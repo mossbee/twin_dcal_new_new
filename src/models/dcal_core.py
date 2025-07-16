@@ -106,7 +106,11 @@ class DCALEncoder(nn.Module):
         self.use_dynamic_loss = use_dynamic_loss
         
         # Vision Transformer backbone
-        self.backbone = create_vit_model(backbone_config, **backbone_kwargs)
+        # Filter out DCAL-specific keys from kwargs to avoid passing them to create_vit_model
+        dcal_keys = {'backbone', 'local_ratio_fgvc', 'local_ratio_reid', 'num_sa_blocks', 
+                     'num_glca_blocks', 'num_pwca_blocks', 'use_dynamic_loss'}
+        filtered_kwargs = {k: v for k, v in backbone_kwargs.items() if k not in dcal_keys}
+        self.backbone = create_vit_model(backbone_config, **filtered_kwargs)
         
         # DCAL transformer blocks
         drop_path_rates = [x.item() for x in torch.linspace(0, drop_path_rate, num_sa_blocks)]
