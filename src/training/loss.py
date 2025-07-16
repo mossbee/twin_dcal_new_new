@@ -472,13 +472,14 @@ class DCALLoss(nn.Module):
         count = 0
         for i in range(len(all_attentions)):
             for j in range(i + 1, len(all_attentions)):
-                similarity = F.cosine_similarity(
-                    all_attentions[i].flatten(1),
-                    all_attentions[j].flatten(1),
-                    dim=1
-                )
-                diversity_loss += torch.mean(similarity)
-                count += 1
+                a = all_attentions[i]
+                b = all_attentions[j]
+                if a.shape == b.shape:
+                    similarity = F.cosine_similarity(a.flatten(1), b.flatten(1), dim=1)
+                    diversity_loss += torch.mean(similarity)
+                    count += 1
+                else:
+                    print(f"[DEBUG] Skipping attention pair with shapes {a.shape} and {b.shape}")
         if count > 0:
             return diversity_loss / count
         else:
