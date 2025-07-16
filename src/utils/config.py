@@ -108,6 +108,9 @@ class DataConfig:
     random_rotation: float = 10.0
     normalize_mean: list = field(default_factory=lambda: [0.485, 0.456, 0.406])
     normalize_std: list = field(default_factory=lambda: [0.229, 0.224, 0.225])
+    
+    # Debug mode
+    debug: bool = False
 
 
 @dataclass

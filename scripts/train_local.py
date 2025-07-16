@@ -74,7 +74,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_config(config_path: str, args: argparse.Namespace) -> dict:
+def load_config(config_path: str, args: argparse.Namespace) -> 'Config':
     """Load configuration from file and override with command line arguments."""
     config = get_config(config_path)
     config_dict = config.to_dict()
@@ -93,20 +93,15 @@ def load_config(config_path: str, args: argparse.Namespace) -> dict:
     if args.image_size is not None:
         config_dict['data']['image_size'] = args.image_size
     if args.tracking is not None:
-        config_dict['tracking'] = config_dict.get('tracking', {})
-        config_dict['tracking']['type'] = args.tracking
+        config_dict['system']['tracking'] = args.tracking
     if args.experiment_name is not None:
-        config_dict['tracking'] = config_dict.get('tracking', {})
-        config_dict['tracking']['experiment_name'] = args.experiment_name
+        config_dict['system']['experiment_name'] = args.experiment_name
     if args.run_name is not None:
-        config_dict['tracking'] = config_dict.get('tracking', {})
-        config_dict['tracking']['run_name'] = args.run_name
+        config_dict['system']['run_name'] = args.run_name
     if args.log_dir is not None:
-        config_dict['logging'] = config_dict.get('logging', {})
-        config_dict['logging']['log_dir'] = args.log_dir
+        config_dict['system']['log_dir'] = args.log_dir
     if args.checkpoint_dir is not None:
-        config_dict['checkpointing'] = config_dict.get('checkpointing', {})
-        config_dict['checkpointing']['checkpoint_dir'] = args.checkpoint_dir
+        config_dict['system']['checkpoint_dir'] = args.checkpoint_dir
     
     # Set environment
     config_dict['environment'] = 'local'
@@ -117,7 +112,8 @@ def load_config(config_path: str, args: argparse.Namespace) -> dict:
         config_dict['training']['batch_size'] = 4
         config_dict['data']['debug'] = True
     
-    return config_dict
+    # Convert back to Config object
+    return Config.from_dict(config_dict)
 
 
 def create_model(config: dict) -> SiameseDCAL:
@@ -228,86 +224,42 @@ def main():
     config = load_config(args.config, args)
     
     # Setup logging
-    logger = setup_logging(config.get('logging', {}))
+    logger = setup_logging(config.system.__dict__)
     logger.info("Starting DCAL Twin Face Verification training")
     logger.info(f"Configuration: {config}")
     
     # Setup device
-    device = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+    device = config.system.device if hasattr(config.system, 'device') else ('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
     
     # Create model
     logger.info("Creating model...")
-    model = create_model(config)
+    model = create_model(config.to_dict())
     logger.info(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
     # Create data loaders
     logger.info("Creating data loaders...")
-    train_loader, val_loader = create_data_loaders(config)
+    train_loader, val_loader = create_data_loaders(config.to_dict())
     logger.info(f"Train dataset: {len(train_loader.dataset)} samples")
     logger.info(f"Val dataset: {len(val_loader.dataset)} samples")
     
     # Create experiment tracker
     logger.info("Setting up experiment tracking...")
-    tracker = create_tracker(config.get('tracking', {}))
+    tracker = create_tracker(config.system.__dict__)
     
     # Create checkpoint manager
     logger.info("Setting up checkpoint manager...")
-    checkpoint_manager = create_checkpoint_manager(config.get('checkpointing', {}))
+    checkpoint_manager = create_checkpoint_manager(config.system.__dict__)
     
     # Create trainer
     logger.info("Creating trainer...")
-    trainer = create_trainer(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        config=config
-    )
+    trainer = create_trainer(config.to_dict(), model, train_loader, val_loader, tracker, checkpoint_manager)
     
-    # Auto-resume or manual resume
-    start_epoch = 0
-    if args.auto_resume:
-        logger.info("Attempting to auto-resume from latest checkpoint...")
-        checkpoint_data = checkpoint_manager.auto_resume_training(
-            model=trainer.base_model,
-            optimizer=trainer.optimizer,
-            scheduler=trainer.scheduler,
-            scaler=trainer.scaler if hasattr(trainer, 'scaler') else None
-        )
-        if checkpoint_data:
-            start_epoch = checkpoint_data['epoch'] + 1
-            logger.info(f"Resumed from epoch {checkpoint_data['epoch']}")
-    elif args.resume:
-        logger.info(f"Resuming from checkpoint: {args.resume}")
-        checkpoint_data = checkpoint_manager.load_checkpoint(
-            model=trainer.base_model,
-            optimizer=trainer.optimizer,
-            checkpoint_path=args.resume,
-            scheduler=trainer.scheduler,
-            scaler=trainer.scaler if hasattr(trainer, 'scaler') else None
-        )
-        start_epoch = checkpoint_data['epoch'] + 1
-        logger.info(f"Resumed from epoch {checkpoint_data['epoch']}")
+    # Start training
+    logger.info("Starting training...")
+    trainer.train()
     
-    # Start experiment tracking
-    tracker.start_run(config)
-    
-    try:
-        # Train model
-        logger.info("Starting training...")
-        trainer.train(
-            num_epochs=config['training']['epochs'],
-            save_interval=config['checkpointing'].get('save_interval', 1)
-        )
-        
-        # Save final model
-        logger.info("Saving final model...")
-        checkpoint_manager.save_model_only(trainer.base_model, "final_model.pth")
-        
-        # Log final model
-        tracker.log_model(trainer.base_model, "final_model")
-        
-        logger.info("Training completed successfully!")
+    logger.info("Training completed!")
         
     except KeyboardInterrupt:
         logger.info("Training interrupted by user")

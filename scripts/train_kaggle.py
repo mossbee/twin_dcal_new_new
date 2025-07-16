@@ -68,7 +68,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_config(config_path: str, args: argparse.Namespace) -> dict:
+def load_config(config_path: str, args: argparse.Namespace) -> 'Config':
     """Load configuration from file and override with command line arguments."""
     # Load base config if exists, otherwise create default
     if os.path.exists(config_path):
@@ -85,26 +85,26 @@ def load_config(config_path: str, args: argparse.Namespace) -> dict:
     if args.learning_rate is not None:
         config_dict['training']['learning_rate'] = args.learning_rate
     if args.data_root is not None:
-        config_dict['data']['data_root'] = args.data_root
+        config_dict['data']['data_dir'] = args.data_root
     if args.image_size is not None:
         config_dict['data']['image_size'] = args.image_size
     if args.experiment_name is not None:
-        config_dict['tracking']['experiment_name'] = args.experiment_name
+        config_dict['system']['experiment_name'] = args.experiment_name
     if args.run_name is not None:
-        config_dict['tracking']['run_name'] = args.run_name
+        config_dict['system']['run_name'] = args.run_name
     if args.timeout_hours is not None:
-        config_dict['checkpointing']['timeout_hours'] = args.timeout_hours
+        config_dict['system']['timeout_hours'] = args.timeout_hours
     if args.save_interval is not None:
-        config_dict['checkpointing']['save_interval'] = args.save_interval
+        config_dict['system']['save_interval'] = args.save_interval
     
     # Set environment
     config_dict['environment'] = 'kaggle'
     
     # Kaggle-specific optimizations
-    config_dict['training']['num_workers'] = 2  # Kaggle has limited CPU
-    config_dict['training']['pin_memory'] = True
+    config_dict['data']['num_workers'] = 2  # Kaggle has limited CPU
+    config_dict['data']['pin_memory'] = True
     config_dict['training']['use_amp'] = True  # Use mixed precision
-    config_dict['checkpointing']['max_checkpoints'] = 3  # Limit checkpoints
+    config_dict['system']['max_checkpoints'] = 3  # Limit checkpoints
     
     # Debug mode
     if args.debug:
@@ -112,7 +112,8 @@ def load_config(config_path: str, args: argparse.Namespace) -> dict:
         config_dict['training']['batch_size'] = 4
         config_dict['data']['debug'] = True
     
-    return config_dict
+    # Convert back to Config object
+    return Config.from_dict(config_dict)
 
 
 def get_default_kaggle_config() -> dict:
