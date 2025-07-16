@@ -49,9 +49,9 @@ model:
   pretrained_path: null
 system:
   tracking: wandb
-  experiment_name: dcal_twin_verification
+  experiment_name: dcal_twin_verification_july
   wandb_entity: hunchoquavodb-hanoi-university-of-science-and-technology
-  wandb_project: dcal_twin_july
+  wandb_project: dcal_twin_verification_july
   auto_resume: true
   checkpoint_dir: /kaggle/working/checkpoints
   device: cuda
