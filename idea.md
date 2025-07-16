@@ -48,9 +48,9 @@ print("WandB configured")
 - Since there is no official implement, many things mentioned in original paper may strange to you. Read the research carefully, list them down, I will find the official implementation on GitHub for you to look at?
 - What is the input size images I should resize to?
 - If you still have any question, tell me?
+- In the original paper, they apply attention map over images. Did they mentioned on how they achieved this? I want this feature for the inference step, where I can have an understanding of how model tell two people apart.
 
 ### Things to do:
 - Write an implementation plan markdown file, for YOU to revisit while implement the idea. This file's purpose is to prevent you from forget what you are doing. It should be clear, fully in detail but short and concise. The content can be the project structure, what you are writing in this files, etc...
 - Break down implementation into phases, to do list. We will go step by step.
-- In the original paper, they apply attention map over images. This is interesting, it give me an eplainable way to know how the model tell what face part make twin people different. If this is possible, add it in a later phase in implement plan.
 - I want a code base that efficient, clear, just write code that needed. The code base should fully utilized both training datset and training resources. Another time, be minimal, just write scripts/code that necessary. I do not need notebooks, utils that never used.

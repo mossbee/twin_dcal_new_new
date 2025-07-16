@@ -68,6 +68,7 @@ class TrainingConfig:
     optimizer: str = "adam"  # adam, sgd, adamw
     momentum: float = 0.9
     gradient_clip: float = 1.0
+    gradient_accumulation_steps: int = 1
     
     # Mixed precision training
     use_amp: bool = True
