@@ -19,10 +19,10 @@ data:
   positive_ratio: 0.5
   random_rotation: 10.0
   soft_negative_ratio: 0.2
-  test_info_file: test_dataset_infor.json
-  test_pairs_file: test_twin_pairs.json
-  train_info_file: train_dataset_infor.json
-  train_pairs_file: train_twin_pairs.json
+  test_info_file: /kaggle/input/nd-twin/test_dataset_infor.json
+  test_pairs_file: /kaggle/input/nd-twin/test_twin_pairs.json
+  train_info_file: /kaggle/input/nd-twin/train_dataset_infor.json
+  train_pairs_file: /kaggle/input/nd-twin/train_twin_pairs.json
   train_split: 0.8
   val_split: 0.2
 dcal:
