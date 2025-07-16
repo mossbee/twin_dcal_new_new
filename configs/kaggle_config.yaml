@@ -40,7 +40,7 @@ dcal:
   use_attention_rollout: true
   use_dynamic_loss: true
 model:
-  backbone: deit_small_patch16_224
+  backbone: vit_small_patch16_224
   dropout: 0.1
   embed_dim: 384
   num_classes: 2
