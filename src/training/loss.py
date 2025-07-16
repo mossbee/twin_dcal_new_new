@@ -446,7 +446,12 @@ class DCALLoss(nn.Module):
             Diversity loss
         """
         if len(attention_maps) < 2:
-            return torch.tensor(0.0, device=list(attention_maps.values())[0].device)
+            print("[DEBUG] attention_maps is empty or has only one entry in _compute_diversity_loss!")
+            device = torch.device("cpu")
+            if len(attention_maps) > 0:
+                device = list(attention_maps.values())[0].device
+            print("[DEBUG] Returning zero diversity loss on device:", device)
+            return torch.tensor(0.0, device=device)
         
         diversity_loss = 0
         count = 0
@@ -463,4 +468,9 @@ class DCALLoss(nn.Module):
                 diversity_loss += torch.mean(similarity)
                 count += 1
         
-        return diversity_loss / count if count > 0 else torch.tensor(0.0, device=attention_list[0].device) 
+        if count > 0:
+            return diversity_loss / count
+        else:
+            device = attention_list[0].device
+            print("[DEBUG] Returning zero diversity loss (no pairs) on device:", device)
+            return torch.tensor(0.0, device=device) 
