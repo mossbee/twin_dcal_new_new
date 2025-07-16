@@ -19,14 +19,15 @@ In research.md is a research: Dual Cross-Attention Learning (DCAL) for Fine-Grai
 - For Kaggle, API key is in Kaggle kaggle secrets, in WANDB_API_KEY variable. The entity name is hunchoquavodb-hanoi-university-of-science-and-technology.
 
 ### More information:
-- Kaggle training will time out every 12 hours, so model checkpoint should be performed every 5 epoch, and the training should be able to resume from checkpoint. Do not upload checkpoint to WanDB, just metrics.
-- This repo will be push to GitHub, with all .json file and the training script should load all those data infor json files from the repo itself. On Kaggle, we clone the repo through: 
+- Model checkpoint should be performed every 5 epoch.
+- There should be two option: fresh training or resume training from checkpoint.
+- This repo will be push to GitHub, with all .json file containing dataset information. On Kaggle, we clone the repo from Github:
 
 ```Kaggle
 !git clone "https://github.com/github_name/this_repo.git"
 ```
 
-and run:
+and training:
 
 ```python
 import os
