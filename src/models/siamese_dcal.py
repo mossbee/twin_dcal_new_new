@@ -138,8 +138,24 @@ class SiameseDCAL(nn.Module):
             output['raw_features2'] = output2['features']
         
         if return_attention:
-            output['attention1'] = output1.get('attention_maps', {})
-            output['attention2'] = output2.get('attention_maps', {})
+            # Aggregate all available attention maps into a single dict for output1
+            attention_maps1 = {}
+            if 'sa_attention' in output1 and output1['sa_attention']:
+                attention_maps1['sa'] = output1['sa_attention']
+            if 'glca_attention' in output1 and output1['glca_attention']:
+                attention_maps1['glca'] = output1['glca_attention']
+            if 'pwca_attention' in output1 and output1['pwca_attention']:
+                attention_maps1['pwca'] = output1['pwca_attention']
+            output['attention1'] = attention_maps1
+            # Aggregate for output2 as well
+            attention_maps2 = {}
+            if 'sa_attention' in output2 and output2['sa_attention']:
+                attention_maps2['sa'] = output2['sa_attention']
+            if 'glca_attention' in output2 and output2['glca_attention']:
+                attention_maps2['glca'] = output2['glca_attention']
+            if 'pwca_attention' in output2 and output2['pwca_attention']:
+                attention_maps2['pwca'] = output2['pwca_attention']
+            output['attention2'] = attention_maps2
         
         return output
     
