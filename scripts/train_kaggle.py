@@ -313,6 +313,9 @@ def main():
                 config=trainer.config
             )
             trainer._log_epoch_metrics(train_metrics, val_metrics)
+            # Log metrics to WandB
+            tracker.log_metrics({f"train/{k}": v for k, v in train_metrics.items()}, step=epoch)
+            tracker.log_metrics({f"val/{k}": v for k, v in val_metrics.items()}, step=epoch)
             if trainer._should_early_stop(val_metrics):
                 logger.info(f"Early stopping at epoch {epoch}")
                 break
