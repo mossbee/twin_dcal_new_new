@@ -70,7 +70,12 @@ class TrainingConfig:
     gradient_clip: float = 1.0
     gradient_accumulation_steps: int = 1
     
-    # Mixed precision training
+    # Performance optimizations
+    mixed_precision: bool = True  # Enable AMP for faster training
+    gradient_clipping: float = 1.0  # Clip gradients to prevent exploding gradients
+    compile_model: bool = False  # Use torch.compile for faster forward pass
+    
+    # Mixed precision training (legacy support)
     use_amp: bool = True
     
     # Validation settings

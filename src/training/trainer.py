@@ -31,7 +31,11 @@ import numpy as np
 from .loss import DCALLoss, VerificationLoss, UncertaintyLoss
 from .metrics import MetricsTracker, calculate_verification_metrics
 from ..models import SiameseDCAL
+from ..utils.config import TrainingConfig
+from ..utils.checkpoint import CheckpointManager
+from ..utils.logging import get_logger
 
+logger = get_logger(__name__)
 
 class Trainer:
     """
@@ -71,12 +75,10 @@ class Trainer:
             log_dir: Directory for logs
             checkpoint_dir: Directory for checkpoints
         """
-        self.model = model
+        self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.device = device
         self.config = config or {}
-        self.log_dir = log_dir
         self.checkpoint_dir = checkpoint_dir
         
         # Ensure directories exist before setting up logger
@@ -122,6 +124,15 @@ class Trainer:
     def _setup_model(self):
         """Setup model for training."""
         self.model = self.model.to(self.device)
+        
+        # Model compilation for faster forward pass
+        if self.config.get('compile_model', False):
+            self.logger.info("Compiling model with torch.compile...")
+            try:
+                self.model = torch.compile(self.model)
+                self.logger.info("Model compilation successful")
+            except Exception as e:
+                self.logger.warning(f"Model compilation failed: {e}, continuing without compilation")
         
         # Multi-GPU support
         if torch.cuda.device_count() > 1:
@@ -184,7 +195,8 @@ class Trainer:
     
     def _setup_mixed_precision(self):
         """Setup mixed precision training."""
-        self.use_amp = self.config.get('use_amp', True)
+        # Support both new and legacy config keys
+        self.use_amp = self.config.get('mixed_precision', self.config.get('use_amp', True))
         if self.use_amp:
             self.scaler = GradScaler('cuda')
             self.logger.info("Mixed precision training enabled")
@@ -226,9 +238,11 @@ class Trainer:
                 data_end_time = time.time()
                 data_time += data_end_time - batch_start_time
             
-            # Move batch to device
+            # Move batch to device with non_blocking for better performance
             img1, img2, labels = batch
-            img1, img2, labels = img1.to(self.device), img2.to(self.device), labels.to(self.device)
+            img1 = img1.to(self.device, non_blocking=True)
+            img2 = img2.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
             
             # Forward pass
             if batch_idx < profile_batches:
@@ -281,11 +295,23 @@ class Trainer:
             
             # Gradient accumulation
             if (batch_idx + 1) % gradient_accumulation_steps == 0:
-                if self.use_amp:
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
+                # Gradient clipping
+                gradient_clipping = self.config.get('gradient_clipping', self.config.get('gradient_clip', 1.0))
+                if gradient_clipping > 0:
+                    if self.use_amp:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), gradient_clipping)
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                    else:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), gradient_clipping)
+                        self.optimizer.step()
                 else:
-                    self.optimizer.step()
+                    if self.use_amp:
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                    else:
+                        self.optimizer.step()
                 
                 self.optimizer.zero_grad()
                 self.global_step += 1
@@ -349,9 +375,11 @@ class Trainer:
         
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Validation"):
-                # Move batch to device
+                # Move batch to device with non_blocking for better performance
                 img1, img2, labels = batch
-                img1, img2, labels = img1.to(self.device), img2.to(self.device), labels.to(self.device)
+                img1 = img1.to(self.device, non_blocking=True)
+                img2 = img2.to(self.device, non_blocking=True)
+                labels = labels.to(self.device, non_blocking=True)
                 
                 # Forward pass
                 with autocast('cuda', enabled=self.use_amp):

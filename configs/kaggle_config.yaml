@@ -1,10 +1,10 @@
 data:
-  augmentation: true
-  color_jitter: true
+  augmentation: false
+  color_jitter: false
   data_dir: /kaggle/input/nd-twin
   debug: true
   hard_negative_ratio: 0.3
-  horizontal_flip: true
+  horizontal_flip: false
   image_size: 224
   normalize_mean:
   - 0.485
@@ -14,9 +14,11 @@ data:
   - 0.229
   - 0.224
   - 0.225
-  num_workers: 2
+  num_workers: 4
   patch_size: 16
   pin_memory: true
+  prefetch_factor: 2
+  persistent_workers: true
   positive_ratio: 0.5
   random_rotation: 10.0
   soft_negative_ratio: 0.2
@@ -61,12 +63,18 @@ system:
   seed: 42
   timeout_hours: 11
   tracking: wandb
+# Training Configuration
 training:
+  epochs: 50
   batch_size: 8
-  epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.0005
   gradient_accumulation_steps: 4
+  # Performance optimizations
+  mixed_precision: true  # Enable AMP for faster training
+  gradient_clipping: 1.0  # Clip gradients to prevent exploding gradients
+  compile_model: true  # Use torch.compile for faster forward pass
   gradient_clip: 1.0
-  learning_rate: 0.0005
   momentum: 0.9
   optimizer: adam
   scheduler: cosine
@@ -76,4 +84,3 @@ training:
   val_interval: 5
   val_metric: roc_auc
   warmup_epochs: 10
-  weight_decay: 0.05

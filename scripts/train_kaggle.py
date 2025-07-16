@@ -197,7 +197,9 @@ def create_data_loaders(config: dict) -> tuple:
         shuffle=True,
         num_workers=data_config['num_workers'],
         pin_memory=data_config['pin_memory'],
-        drop_last=True
+        drop_last=True,
+        prefetch_factor=data_config.get('prefetch_factor', 2),
+        persistent_workers=data_config.get('persistent_workers', True)
     )
     
     val_loader = DataLoader(
@@ -206,7 +208,9 @@ def create_data_loaders(config: dict) -> tuple:
         shuffle=False,
         num_workers=data_config['num_workers'],
         pin_memory=data_config['pin_memory'],
-        drop_last=False
+        drop_last=False,
+        prefetch_factor=data_config.get('prefetch_factor', 2),
+        persistent_workers=data_config.get('persistent_workers', True)
     )
     
     return train_loader, val_loader
