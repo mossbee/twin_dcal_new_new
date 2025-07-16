@@ -162,7 +162,8 @@ def create_data_loaders(config: dict) -> tuple:
         mode='train',
         negative_ratio=1.0,  # Default value
         hard_negative_ratio=data_config['hard_negative_ratio'],
-        soft_negative_ratio=data_config['soft_negative_ratio']
+        soft_negative_ratio=data_config['soft_negative_ratio'],
+        use_only_hard_negatives=data_config.get('use_only_hard_negatives', True)
     )
     
     val_dataset = TwinDataset(
@@ -173,7 +174,8 @@ def create_data_loaders(config: dict) -> tuple:
         mode='val',
         negative_ratio=1.0,  # Default value
         hard_negative_ratio=data_config['hard_negative_ratio'],
-        soft_negative_ratio=data_config['soft_negative_ratio']
+        soft_negative_ratio=data_config['soft_negative_ratio'],
+        use_only_hard_negatives=data_config.get('use_only_hard_negatives', True)
     )
     
     # Debug mode: use smaller subset
@@ -197,9 +199,7 @@ def create_data_loaders(config: dict) -> tuple:
         shuffle=True,
         num_workers=data_config['num_workers'],
         pin_memory=data_config['pin_memory'],
-        drop_last=True,
-        prefetch_factor=data_config.get('prefetch_factor', 2),
-        persistent_workers=data_config.get('persistent_workers', True)
+        drop_last=True
     )
     
     val_loader = DataLoader(
@@ -208,9 +208,7 @@ def create_data_loaders(config: dict) -> tuple:
         shuffle=False,
         num_workers=data_config['num_workers'],
         pin_memory=data_config['pin_memory'],
-        drop_last=False,
-        prefetch_factor=data_config.get('prefetch_factor', 2),
-        persistent_workers=data_config.get('persistent_workers', True)
+        drop_last=False
     )
     
     return train_loader, val_loader

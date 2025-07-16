@@ -30,7 +30,8 @@ class TwinDataset(Dataset):
         mode: str = "train",
         negative_ratio: float = 1.0,
         hard_negative_ratio: float = 0.3,
-        soft_negative_ratio: float = 0.2
+        soft_negative_ratio: float = 0.2,
+        use_only_hard_negatives: bool = True
     ):
         """
         Initialize the dataset.
@@ -44,6 +45,7 @@ class TwinDataset(Dataset):
             negative_ratio: Ratio of negative to positive pairs
             hard_negative_ratio: Ratio of hard negatives (different twins)
             soft_negative_ratio: Ratio of soft negatives (random pairs)
+            use_only_hard_negatives: If True, use only hard negatives (twins) for training
         """
         self.data_root = data_root
         self.transform = transform
@@ -51,6 +53,7 @@ class TwinDataset(Dataset):
         self.negative_ratio = negative_ratio
         self.hard_negative_ratio = hard_negative_ratio
         self.soft_negative_ratio = soft_negative_ratio
+        self.use_only_hard_negatives = use_only_hard_negatives
         
         # Load dataset info
         with open(dataset_info_path, 'r') as f:
@@ -111,47 +114,86 @@ class TwinDataset(Dataset):
         
         # Generate negative pairs
         num_negative = int(num_positive * self.negative_ratio)
-        num_hard_negative = int(num_negative * self.hard_negative_ratio)
-        num_soft_negative = num_negative - num_hard_negative
         
-        # Hard negatives: Different people from twin pairs
-        hard_negatives = []
-        for _ in range(num_hard_negative):
-            # Select two different twin pairs
-            twin_set1 = random.choice(self.twin_sets)
-            twin_set2 = random.choice(self.twin_sets)
+        if self.use_only_hard_negatives:
+            # ONLY HARD NEGATIVES: Different people from twin pairs (most challenging)
+            hard_negatives = []
             
-            # Ensure different twin pairs
-            while twin_set1 == twin_set2:
+            # Generate all possible hard negative combinations
+            all_hard_negatives = []
+            for twin_set1 in self.twin_sets:
+                for twin_set2 in self.twin_sets:
+                    if twin_set1 != twin_set2:
+                        # Create pairs between different twin sets
+                        for person1 in twin_set1:
+                            for person2 in twin_set2:
+                                if person1 in self.dataset_info and person2 in self.dataset_info:
+                                    for img1 in self.dataset_info[person1]:
+                                        for img2 in self.dataset_info[person2]:
+                                            all_hard_negatives.append((img1, img2, 0))
+            
+            # Sample from all possible hard negatives
+            if len(all_hard_negatives) >= num_negative:
+                hard_negatives = random.sample(all_hard_negatives, num_negative)
+            else:
+                # If not enough hard negatives, use all of them and add duplicates
+                hard_negatives = all_hard_negatives[:]
+                while len(hard_negatives) < num_negative:
+                    hard_negatives.extend(random.sample(all_hard_negatives, 
+                                                      min(len(all_hard_negatives), 
+                                                          num_negative - len(hard_negatives))))
+            
+            pairs.extend(hard_negatives)
+            
+            print(f"Using ONLY hard negatives: {len(hard_negatives)} pairs")
+            print(f"Total possible hard negatives: {len(all_hard_negatives)}")
+            print(f"Hard negative sampling ratio: {len(hard_negatives) / len(all_hard_negatives):.2%}")
+        
+        else:
+            # MIXED NEGATIVES: Original implementation with hard + soft negatives
+            num_hard_negative = int(num_negative * self.hard_negative_ratio)
+            num_soft_negative = num_negative - num_hard_negative
+            
+            # Hard negatives: Different people from twin pairs
+            hard_negatives = []
+            for _ in range(num_hard_negative):
+                # Select two different twin pairs
+                twin_set1 = random.choice(self.twin_sets)
                 twin_set2 = random.choice(self.twin_sets)
+                
+                # Ensure different twin pairs
+                while twin_set1 == twin_set2:
+                    twin_set2 = random.choice(self.twin_sets)
+                
+                # Select random person from each twin pair
+                person1 = random.choice(twin_set1)
+                person2 = random.choice(twin_set2)
+                
+                # Select random images
+                img1 = random.choice(self.dataset_info[person1])
+                img2 = random.choice(self.dataset_info[person2])
+                
+                hard_negatives.append((img1, img2, 0))
             
-            # Select random person from each twin pair
-            person1 = random.choice(twin_set1)
-            person2 = random.choice(twin_set2)
-            
-            # Select random images
-            img1 = random.choice(self.dataset_info[person1])
-            img2 = random.choice(self.dataset_info[person2])
-            
-            hard_negatives.append((img1, img2, 0))
-        
-        # Soft negatives: Random different people
-        soft_negatives = []
-        for _ in range(num_soft_negative):
-            person1 = random.choice(self.all_person_ids)
-            person2 = random.choice(self.all_person_ids)
-            
-            # Ensure different people
-            while person1 == person2:
+            # Soft negatives: Random different people
+            soft_negatives = []
+            for _ in range(num_soft_negative):
+                person1 = random.choice(self.all_person_ids)
                 person2 = random.choice(self.all_person_ids)
+                
+                # Ensure different people
+                while person1 == person2:
+                    person2 = random.choice(self.all_person_ids)
+                
+                img1 = random.choice(self.dataset_info[person1])
+                img2 = random.choice(self.dataset_info[person2])
+                
+                soft_negatives.append((img1, img2, 0))
             
-            img1 = random.choice(self.dataset_info[person1])
-            img2 = random.choice(self.dataset_info[person2])
+            pairs.extend(hard_negatives)
+            pairs.extend(soft_negatives)
             
-            soft_negatives.append((img1, img2, 0))
-        
-        pairs.extend(hard_negatives)
-        pairs.extend(soft_negatives)
+            print(f"Using mixed negatives: {len(hard_negatives)} hard + {len(soft_negatives)} soft")
         
         # Shuffle pairs
         random.shuffle(pairs)

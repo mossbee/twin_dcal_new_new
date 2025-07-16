@@ -70,12 +70,7 @@ class TrainingConfig:
     gradient_clip: float = 1.0
     gradient_accumulation_steps: int = 1
     
-    # Performance optimizations
-    mixed_precision: bool = True  # Enable AMP for faster training
-    gradient_clipping: float = 1.0  # Clip gradients to prevent exploding gradients
-    compile_model: bool = False  # Use torch.compile for faster forward pass
-    
-    # Mixed precision training (legacy support)
+    # Mixed precision training
     use_amp: bool = True
     
     # Validation settings
@@ -103,12 +98,11 @@ class DataConfig:
     positive_ratio: float = 0.5
     hard_negative_ratio: float = 0.3
     soft_negative_ratio: float = 0.2
+    use_only_hard_negatives: bool = True  # Use only hard negatives (twins) for training
     
     # Data loading
     num_workers: int = 4
     pin_memory: bool = True
-    prefetch_factor: int = 2
-    persistent_workers: bool = True
     
     # Augmentation settings
     horizontal_flip: bool = True

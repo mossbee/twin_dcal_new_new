@@ -19,6 +19,7 @@ data:
   positive_ratio: 0.5
   random_rotation: 10.0
   soft_negative_ratio: 0.2
+  use_only_hard_negatives: true
   test_info_file: test_dataset_infor.json
   test_pairs_file: test_twin_pairs.json
   train_info_file: train_dataset_infor.json
