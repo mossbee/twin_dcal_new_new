@@ -200,7 +200,7 @@ def create_model(config: dict) -> SiameseDCAL:
         patch_size=data_config['patch_size'],
         in_channels=3,
         embed_dim=model_config['embed_dim'],
-        depth=model_config['num_layers'],
+        num_layers=model_config['num_layers'],
         num_heads=model_config['num_heads'],
         mlp_ratio=4.0,  # Default value for ViT
         dropout=model_config['dropout'],
