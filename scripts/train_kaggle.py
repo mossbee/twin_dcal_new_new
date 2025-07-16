@@ -372,7 +372,7 @@ def main():
     config = load_config(args.config, args)
     
     # Setup logging
-    logger = setup_logging(config.get('logging', {}))
+    logger = setup_logging(config.system.__dict__)
     logger.info("Starting DCAL Twin Face Verification training on Kaggle")
     logger.info(f"Configuration: {config}")
     
@@ -386,28 +386,28 @@ def main():
     
     # Create model
     logger.info("Creating model...")
-    model = create_model(config)
+    model = create_model(config.to_dict())
     logger.info(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
     # Create data loaders
     logger.info("Creating data loaders...")
-    train_loader, val_loader = create_data_loaders(config)
+    train_loader, val_loader = create_data_loaders(config.to_dict())
     logger.info(f"Train dataset: {len(train_loader.dataset)} samples")
     logger.info(f"Val dataset: {len(val_loader.dataset)} samples")
     
     # Create experiment tracker
     logger.info("Setting up WandB tracking...")
-    tracker = create_tracker(config.get('tracking', {}))
+    tracker = create_tracker(config.system.__dict__)
     
     # Create Kaggle checkpoint manager
     logger.info("Setting up Kaggle checkpoint manager...")
     checkpoint_manager = KaggleCheckpointManager(
-        checkpoint_dir=config['checkpointing']['checkpoint_dir'],
-        timeout_hours=config['checkpointing']['timeout_hours'],
-        max_checkpoints=config['checkpointing']['max_checkpoints'],
-        save_best=config['checkpointing']['save_best'],
-        best_metric=config['checkpointing']['best_metric'],
-        best_mode=config['checkpointing']['best_mode']
+        checkpoint_dir=config.system.checkpoint_dir,
+        timeout_hours=config.system.timeout_hours,
+        max_checkpoints=config.system.max_checkpoints,
+        save_best=True,
+        best_metric='roc_auc',
+        best_mode='max'
     )
     
     # Create trainer
@@ -416,7 +416,7 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        config=config
+        config=config.to_dict()
     )
     
     # Auto-resume from checkpoint
@@ -449,7 +449,7 @@ def main():
             trainer.best_val_score = checkpoint_data.get('best_val_score', 0.0)
     
     # Start experiment tracking
-    tracker.start_run(config)
+    tracker.start_run(config.to_dict())
     
     # Create Kaggle trainer wrapper
     kaggle_trainer = KaggleTrainer(trainer, checkpoint_manager)
@@ -457,7 +457,7 @@ def main():
     try:
         # Train model with timeout monitoring
         logger.info("Starting training with timeout monitoring...")
-        kaggle_trainer.train_with_timeout(config['training']['epochs'])
+        kaggle_trainer.train_with_timeout(config.training.epochs)
         
         # Save final model
         logger.info("Saving final model...")
