@@ -2,6 +2,7 @@ data:
   augmentation: true
   color_jitter: true
   data_dir: /kaggle/input/nd-twin
+  debug: true
   hard_negative_ratio: 0.3
   horizontal_flip: true
   image_size: 224
@@ -13,7 +14,7 @@ data:
   - 0.229
   - 0.224
   - 0.225
-  num_workers: 4
+  num_workers: 2
   patch_size: 16
   pin_memory: true
   positive_ratio: 0.5
@@ -33,7 +34,7 @@ dcal:
   loss_weight_pwca: 1.0
   loss_weight_sa: 1.0
   num_glca_blocks: 1
-  num_pwca_blocks: 8
+  num_pwca_blocks: 12
   num_sa_blocks: 12
   use_attention_rollout: true
   use_dynamic_loss: true
@@ -56,13 +57,14 @@ system:
   num_gpus: 1
   resume_from: null
   run_name: null
-  save_interval: 1
+  save_interval: 10
   seed: 42
   timeout_hours: 11
   tracking: wandb
 training:
   batch_size: 8
   epochs: 100
+  gradient_accumulation_steps: 4
   gradient_clip: 1.0
   learning_rate: 0.0005
   momentum: 0.9
@@ -71,7 +73,7 @@ training:
   scheduler_factor: 0.5
   scheduler_patience: 10
   use_amp: true
-  val_interval: 1
+  val_interval: 5
   val_metric: roc_auc
   warmup_epochs: 10
   weight_decay: 0.05

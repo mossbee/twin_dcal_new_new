@@ -217,14 +217,14 @@ class Trainer:
             
             # Forward pass
             with autocast('cuda', enabled=self.use_amp):
-                output = self.model(img1, img2, return_attention=True)
+                output = self.model(img1, img2, return_attention=False)
                 
                 # Compute loss
                 loss, loss_components = self.loss_fn(
                     output['features1'],
                     output['features2'], 
                     labels,
-                    attention_maps=output.get('attention1', {}),
+                    attention_maps=None,  # No attention maps needed for training
                     logits=output['logits']
                 )
                 
