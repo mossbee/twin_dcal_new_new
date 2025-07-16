@@ -111,21 +111,27 @@ def create_model(config: dict) -> SiameseDCAL:
     dcal_config = config['dcal']
     # Use 'num_layers' for VisionTransformer, fallback to 'depth' if needed
     num_layers = model_config.get('num_layers', model_config.get('depth'))
-    backbone = VisionTransformer(
-        img_size=data_config['image_size'],
-        patch_size=data_config['patch_size'],
-        embed_dim=model_config['embed_dim'],
-        num_layers=num_layers,
-        num_heads=model_config['num_heads'],
+    # Prepare DCALEncoder arguments
+    dcal_encoder = DCALEncoder(
+        backbone_config=model_config.get('backbone', 'vit_base_patch16_224'),
+        num_sa_blocks=dcal_config.get('num_sa_blocks', 12),
+        num_glca_blocks=dcal_config.get('num_glca_blocks', 1),
+        num_pwca_blocks=dcal_config.get('num_pwca_blocks', 12),
+        local_ratio=dcal_config.get('local_ratio_fgvc', 0.1),
+        embed_dim=model_config.get('embed_dim', 768),
+        num_heads=model_config.get('num_heads', 12),
         mlp_ratio=model_config.get('mlp_ratio', 4.0),
-        dropout=model_config['dropout'],
+        dropout=model_config.get('dropout', 0.1),
         pretrained=model_config.get('pretrained', True),
-        pretrained_path=model_config.get('pretrained_path', None)
+        pretrained_path=model_config.get('pretrained_path', None),
+        num_layers=num_layers,
+        use_dynamic_loss=dcal_config.get('use_dynamic_loss', True)
     )
     model = SiameseDCAL(
-        backbone=backbone,
-        dcal_config=dcal_config,
-        feature_dim=model_config['embed_dim'],
+        dcal_encoder=dcal_encoder,
+        similarity_function='cosine',
+        feature_dim=model_config.get('embed_dim', 768),
+        dropout=model_config.get('dropout', 0.1),
         temperature=model_config.get('temperature', 0.07),
         learnable_temperature=model_config.get('learnable_temperature', True)
     )
