@@ -78,7 +78,9 @@ class Trainer:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.config = config or {}
+        self.log_dir = log_dir
         self.checkpoint_dir = checkpoint_dir
+        self.device = device
         
         # Ensure directories exist before setting up logger
         os.makedirs(log_dir, exist_ok=True)

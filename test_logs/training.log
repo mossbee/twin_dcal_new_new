@@ -1,0 +1,3 @@
+2025-07-16 15:32:24,577 - src.training.trainer - INFO - Mixed precision training enabled
+2025-07-16 15:32:24,578 - src.training.trainer - INFO - Trainer initialized with device: cpu
+2025-07-16 15:32:24,578 - src.training.trainer - INFO - Model parameters: 176,759,816
