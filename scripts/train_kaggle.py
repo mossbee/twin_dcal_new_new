@@ -295,6 +295,9 @@ def main():
     
     # Start experiment tracking
     tracker.start_run(config.to_dict())
+    print(f"WandB tracker active: {getattr(tracker, 'is_active', False)}")
+    if not getattr(tracker, 'is_active', False):
+        print("[WARNING] WandB tracker is not active. Metrics will not be logged to WandB.")
     
     try:
         # Train model with timeout monitoring
