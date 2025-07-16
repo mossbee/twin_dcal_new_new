@@ -106,48 +106,29 @@ def load_config(config_path: str, args: argparse.Namespace) -> 'Config':
 
 
 def create_model(config: dict) -> SiameseDCAL:
-    """Create the DCAL model."""
     model_config = config['model']
     data_config = config['data']
     dcal_config = config['dcal']
-    
-    # Create backbone
+    # Use 'depth' if present, else fallback to 'num_layers' for compatibility
+    depth = model_config.get('depth', model_config.get('num_layers'))
     backbone = VisionTransformer(
         img_size=data_config['image_size'],
         patch_size=data_config['patch_size'],
         embed_dim=model_config['embed_dim'],
-        depth=model_config['depth'],
+        depth=depth,
         num_heads=model_config['num_heads'],
-        mlp_ratio=model_config['mlp_ratio'],
+        mlp_ratio=model_config.get('mlp_ratio', 4.0),
         dropout=model_config['dropout'],
         pretrained=model_config.get('pretrained', True)
     )
-    
-    # Create DCAL encoder
-    dcal_encoder = DCALEncoder(
-        backbone_config=model_config['backbone'],  # Pass the backbone config name
-        num_sa_blocks=dcal_config['num_sa_blocks'],
-        num_glca_blocks=dcal_config['num_glca_blocks'],
-        num_pwca_blocks=dcal_config['num_pwca_blocks'],
-        local_ratio=dcal_config['local_ratio_fgvc'],  # Use fgvc ratio as default
-        embed_dim=model_config['embed_dim'],
-        num_heads=model_config['num_heads'],
-        mlp_ratio=4.0,
-        dropout=model_config['dropout'],
-        use_dynamic_loss=dcal_config['use_dynamic_loss']
-    )
-    
-    # Create Siamese DCAL model with default values for missing parameters
-    siamese_model = SiameseDCAL(
-        dcal_encoder=dcal_encoder,
-        similarity_function='cosine',  # Default value
+    model = SiameseDCAL(
+        backbone=backbone,
+        dcal_config=dcal_config,
         feature_dim=model_config['embed_dim'],
-        dropout=model_config['dropout'],
-        temperature=0.07,  # Default value
-        learnable_temperature=True  # Default value
+        temperature=model_config.get('temperature', 0.07),
+        learnable_temperature=model_config.get('learnable_temperature', True)
     )
-    
-    return siamese_model
+    return model
 
 
 def create_data_loaders(config: dict) -> tuple:
