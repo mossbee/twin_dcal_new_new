@@ -416,13 +416,24 @@ class DCALLoss(nn.Module):
         """
         reg_loss = 0
         count = 0
+
+        if len(attention_maps) == 0:
+            print("[DEBUG] attention_maps is empty in _compute_attention_regularization!")
         
-        for attention_map in attention_maps.values():
+        for key, attention_map in attention_maps.items():
             # L1 regularization to encourage sparsity
             reg_loss += torch.mean(torch.abs(attention_map))
             count += 1
         
-        return reg_loss / count if count > 0 else torch.tensor(0.0, device=list(attention_maps.values())[0].device)
+        if count > 0:
+            return reg_loss / count
+        else:
+            # Defensive: avoid IndexError if attention_maps is empty
+            device = torch.device("cpu")
+            if len(attention_maps) > 0:
+                device = list(attention_maps.values())[0].device
+            print("[DEBUG] Returning zero attention regularization loss on device:", device)
+            return torch.tensor(0.0, device=device)
     
     def _compute_diversity_loss(self, attention_maps: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
