@@ -33,9 +33,8 @@ from .metrics import MetricsTracker, calculate_verification_metrics
 from ..models import SiameseDCAL
 from ..utils.config import TrainingConfig
 from ..utils.checkpoint import CheckpointManager
-from ..utils.logging import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class Trainer:
     """

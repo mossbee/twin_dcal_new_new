@@ -62,7 +62,7 @@ system:
   save_interval: 10
   seed: 42
   timeout_hours: 11
-  tracking: wandb
+  tracking: none
 # Training Configuration
 training:
   epochs: 50
