@@ -161,6 +161,56 @@ The system automatically handles Kaggle's 12-hour timeout:
     --resume-from /kaggle/working/checkpoints/latest_checkpoint.pth
 ```
 
+## Choosing Between Fresh Training and Resume Training
+
+When training on Kaggle or locally, you can choose to either **resume from a previous checkpoint** (continue training from where you left off) or **start fresh** (train from scratch, ignoring any existing checkpoints).
+
+### When to Resume Training
+- You want to continue training after a timeout, crash, or interruption.
+- The model architecture and configuration have **not changed** since the last checkpoint.
+- You want to leverage previously learned weights for faster convergence.
+
+**How to resume:**
+```python
+!python scripts/train_kaggle.py \
+    --config configs/kaggle_config.yaml \
+    --data-root /kaggle/input/nd-twin \
+    --resume-from /kaggle/working/checkpoints/latest_checkpoint.pth
+```
+- The system will attempt to load the latest checkpoint and continue training.
+- If there are minor architecture changes, the loader will log warnings and reinitialize only the mismatched layers (e.g., feature projection). Training will continue, but monitor metrics closely.
+
+### When to Start Fresh Training
+- You want to **ignore all previous checkpoints** and train from scratch.
+- The model architecture or configuration has **changed significantly** (e.g., different feature dimensions, new layers).
+- You want to ensure all weights are randomly initialized.
+
+**How to start fresh:**
+```python
+!python scripts/train_kaggle.py \
+    --config configs/kaggle_config.yaml \
+    --data-root /kaggle/input/nd-twin \
+    --no-resume
+```
+- Use the `--no-resume` flag (if supported) or manually delete/rename the checkpoint directory before training.
+- The system will skip loading any checkpoints and initialize all weights randomly.
+
+### How the System Handles Checkpoint Mismatches
+- If a checkpoint is found but the model architecture has changed, the loader will:
+  - Attempt to load as much as possible.
+  - Log all missing/unexpected/shape-mismatched layers.
+  - Automatically reinitialize mismatched layers (e.g., feature projection).
+  - Provide recommendations in the logs (e.g., reduce learning rate, monitor metrics).
+- If the mismatch is severe, you may see a warning to start fresh training.
+
+### Best Practices
+- **After major model changes:** Start fresh training to avoid subtle bugs.
+- **After minor changes:** Resume training, but monitor logs for warnings about reinitialized layers.
+- **Always save new checkpoints** after resuming or starting fresh, to avoid future compatibility issues.
+- **Monitor training metrics** closely for the first few epochs after resuming or changing the model.
+
+For more details, see the [Troubleshooting](#troubleshooting) section and review logs for checkpoint compatibility analysis.
+
 ## Local Training
 
 ### Multi-GPU Training (2x RTX 2080Ti)

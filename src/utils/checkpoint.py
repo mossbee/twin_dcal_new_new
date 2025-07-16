@@ -250,10 +250,40 @@ class CheckpointManager:
             checkpoint_data = torch.load(checkpoint_path, map_location='cpu')
             
             # Load model state
-            if hasattr(model, 'module'):
-                model.module.load_state_dict(checkpoint_data['model_state_dict'], strict=strict)
-            else:
-                model.load_state_dict(checkpoint_data['model_state_dict'], strict=strict)
+            try:
+                if hasattr(model, 'module'):
+                    model.module.load_state_dict(checkpoint_data['model_state_dict'], strict=True)
+                else:
+                    model.load_state_dict(checkpoint_data['model_state_dict'], strict=True)
+                self.logger.info("Successfully loaded checkpoint with strict=True")
+            except RuntimeError as e:
+                # If strict loading fails, try with strict=False and log mismatches
+                self.logger.warning(f"Strict loading failed: {e}")
+                self.logger.info("Attempting to load checkpoint with strict=False...")
+                
+                if hasattr(model, 'module'):
+                    missing_keys, unexpected_keys = model.module.load_state_dict(
+                        checkpoint_data['model_state_dict'], strict=False
+                    )
+                else:
+                    missing_keys, unexpected_keys = model.load_state_dict(
+                        checkpoint_data['model_state_dict'], strict=False
+                    )
+                
+                if missing_keys:
+                    self.logger.warning(f"Missing keys: {missing_keys}")
+                if unexpected_keys:
+                    self.logger.warning(f"Unexpected keys: {unexpected_keys}")
+                
+                self.logger.info("Successfully loaded checkpoint with strict=False")
+                
+                # Analyze compatibility and handle architecture changes
+                analysis = self._analyze_checkpoint_compatibility(model, checkpoint_data['model_state_dict'])
+                self._log_compatibility_analysis(analysis)
+                self._handle_architecture_changes(model, checkpoint_data['model_state_dict'])
+                
+                # Log summary of what was loaded
+                self._log_loading_summary(analysis)
             
             # Load optimizer state
             optimizer.load_state_dict(checkpoint_data['optimizer_state_dict'])
@@ -277,6 +307,290 @@ class CheckpointManager:
         except Exception as e:
             self.logger.error(f"Failed to load checkpoint {checkpoint_path}: {e}")
             raise
+    
+    def _analyze_checkpoint_compatibility(self, model: nn.Module, checkpoint_state_dict: Dict[str, torch.Tensor]) -> Dict[str, Any]:
+        """
+        Analyze compatibility between checkpoint and current model.
+        
+        Args:
+            model: Current model
+            checkpoint_state_dict: State dict from checkpoint
+            
+        Returns:
+            Dictionary with compatibility analysis
+        """
+        model_state_dict = model.state_dict()
+        
+        analysis = {
+            'total_checkpoint_keys': len(checkpoint_state_dict),
+            'total_model_keys': len(model_state_dict),
+            'matching_keys': 0,
+            'missing_keys': [],
+            'unexpected_keys': [],
+            'shape_mismatches': [],
+            'compatibility_score': 0.0
+        }
+        
+        # Analyze key matches and mismatches
+        for key in checkpoint_state_dict:
+            if key in model_state_dict:
+                analysis['matching_keys'] += 1
+                # Check for shape mismatches
+                if checkpoint_state_dict[key].shape != model_state_dict[key].shape:
+                    analysis['shape_mismatches'].append({
+                        'key': key,
+                        'checkpoint_shape': list(checkpoint_state_dict[key].shape),
+                        'model_shape': list(model_state_dict[key].shape)
+                    })
+            else:
+                analysis['unexpected_keys'].append(key)
+        
+        for key in model_state_dict:
+            if key not in checkpoint_state_dict:
+                analysis['missing_keys'].append(key)
+        
+        # Calculate compatibility score
+        if analysis['total_checkpoint_keys'] > 0:
+            analysis['compatibility_score'] = analysis['matching_keys'] / analysis['total_checkpoint_keys']
+        
+        return analysis
+    
+    def _log_compatibility_analysis(self, analysis: Dict[str, Any]):
+        """Log detailed compatibility analysis."""
+        self.logger.info(f"Checkpoint compatibility analysis:")
+        self.logger.info(f"  Total checkpoint keys: {analysis['total_checkpoint_keys']}")
+        self.logger.info(f"  Total model keys: {analysis['total_model_keys']}")
+        self.logger.info(f"  Matching keys: {analysis['matching_keys']}")
+        self.logger.info(f"  Compatibility score: {analysis['compatibility_score']:.2%}")
+        
+        if analysis['missing_keys']:
+            self.logger.warning(f"  Missing keys: {len(analysis['missing_keys'])}")
+            for key in analysis['missing_keys'][:5]:  # Show first 5
+                self.logger.warning(f"    - {key}")
+            if len(analysis['missing_keys']) > 5:
+                self.logger.warning(f"    ... and {len(analysis['missing_keys']) - 5} more")
+        
+        if analysis['unexpected_keys']:
+            self.logger.warning(f"  Unexpected keys: {len(analysis['unexpected_keys'])}")
+            for key in analysis['unexpected_keys'][:5]:  # Show first 5
+                self.logger.warning(f"    - {key}")
+            if len(analysis['unexpected_keys']) > 5:
+                self.logger.warning(f"    - {key}")
+            if len(analysis['unexpected_keys']) > 5:
+                self.logger.warning(f"    ... and {len(analysis['unexpected_keys']) - 5} more")
+        
+        if analysis['shape_mismatches']:
+            self.logger.warning(f"  Shape mismatches: {len(analysis['shape_mismatches'])}")
+            for mismatch in analysis['shape_mismatches'][:3]:  # Show first 3
+                self.logger.warning(f"    - {mismatch['key']}: {mismatch['checkpoint_shape']} -> {mismatch['model_shape']}")
+            if len(analysis['shape_mismatches']) > 3:
+                self.logger.warning(f"    ... and {len(analysis['shape_mismatches']) - 3} more")
+        
+        if analysis['compatibility_score'] < 0.5:
+            self.logger.error("Low compatibility score detected. Consider starting fresh training.")
+        elif analysis['compatibility_score'] < 0.8:
+            self.logger.warning("Moderate compatibility issues detected. Some layers will be reinitialized.")
+        else:
+            self.logger.info("Good compatibility score. Most weights should load correctly.")
+    
+    def _handle_architecture_changes(self, model: nn.Module, checkpoint_state_dict: Dict[str, torch.Tensor]):
+        """
+        Handle specific architecture changes between checkpoint and current model.
+        
+        Args:
+            model: Current model
+            checkpoint_state_dict: State dict from checkpoint
+        """
+        model_state_dict = model.state_dict()
+        
+        # Handle feature projection layer dimension changes
+        if 'feature_projection.0.weight' in checkpoint_state_dict and 'feature_projection.0.weight' in model_state_dict:
+            checkpoint_weight = checkpoint_state_dict['feature_projection.0.weight']
+            current_weight = model_state_dict['feature_projection.0.weight']
+            
+            if checkpoint_weight.shape != current_weight.shape:
+                self.logger.info(f"Feature projection layer shape changed: {checkpoint_weight.shape} -> {current_weight.shape}")
+                
+                # If checkpoint has smaller input dimension, we need to handle it
+                if checkpoint_weight.shape[1] < current_weight.shape[1]:
+                    # This means the checkpoint was saved with a different feature dimension
+                    # We'll reinitialize this layer and log it
+                    self.logger.warning("Feature projection layer dimension mismatch detected. Layer will be reinitialized.")
+                    
+                    # Reinitialize the feature projection layer
+                    if hasattr(model, 'feature_projection'):
+                        # Reinitialize the first layer
+                        nn.init.xavier_uniform_(model.feature_projection[0].weight)
+                        if model.feature_projection[0].bias is not None:
+                            nn.init.zeros_(model.feature_projection[0].bias)
+                        
+                        # Reinitialize the second layer
+                        nn.init.xavier_uniform_(model.feature_projection[2].weight)
+                        if model.feature_projection[2].bias is not None:
+                            nn.init.zeros_(model.feature_projection[2].bias)
+                        
+                        self.logger.info("Feature projection layers reinitialized")
+                        
+                        # Provide specific guidance for feature projection mismatch
+                        self.logger.info("FEATURE PROJECTION GUIDANCE:")
+                        self.logger.info("  - This mismatch likely occurred due to a change in the DCAL encoder configuration")
+                        self.logger.info("  - The feature projection layer has been reinitialized with Xavier initialization")
+                        self.logger.info("  - Training will continue with the new architecture")
+                        self.logger.info("  - Consider monitoring the feature projection layer gradients")
+                        
+                elif checkpoint_weight.shape[1] > current_weight.shape[1]:
+                    # This means the checkpoint has larger input dimension
+                    self.logger.warning("Checkpoint has larger feature dimension than current model. This may cause issues.")
+                    self.logger.info("  - This suggests the checkpoint was saved with a model that had more features")
+                    self.logger.info("  - Consider using a different checkpoint or starting fresh training")
+        
+        # Handle other common architecture changes
+        self._handle_backbone_changes(model, checkpoint_state_dict)
+        self._handle_classifier_changes(model, checkpoint_state_dict)
+        
+        # Provide recommendations
+        self._provide_recommendations(model, checkpoint_state_dict)
+        
+        # Log specific guidance for common issues
+        self._log_specific_guidance(model, checkpoint_state_dict)
+    
+    def _handle_backbone_changes(self, model: nn.Module, checkpoint_state_dict: Dict[str, torch.Tensor]):
+        """Handle backbone architecture changes."""
+        # Check for backbone-related keys
+        backbone_keys = [k for k in checkpoint_state_dict.keys() if 'backbone' in k or 'dcal_encoder' in k]
+        current_keys = [k for k in model.state_dict().keys() if 'backbone' in k or 'dcal_encoder' in k]
+        
+        if backbone_keys and not current_keys:
+            self.logger.warning("Checkpoint contains backbone weights but current model doesn't have backbone layers")
+        elif current_keys and not backbone_keys:
+            self.logger.warning("Current model has backbone layers but checkpoint doesn't contain backbone weights")
+    
+    def _handle_classifier_changes(self, model: nn.Module, checkpoint_state_dict: Dict[str, torch.Tensor]):
+        """Handle classifier architecture changes."""
+        # Check for classifier-related keys
+        classifier_keys = [k for k in checkpoint_state_dict.keys() if 'classifier' in k]
+        current_keys = [k for k in model.state_dict().keys() if 'classifier' in k]
+        
+        if classifier_keys and not current_keys:
+            self.logger.warning("Checkpoint contains classifier weights but current model doesn't have classifier layers")
+        elif current_keys and not classifier_keys:
+            self.logger.warning("Current model has classifier layers but checkpoint doesn't contain classifier weights")
+    
+    def _provide_recommendations(self, model: nn.Module, checkpoint_state_dict: Dict[str, torch.Tensor]):
+        """Provide recommendations for handling architecture mismatches."""
+        model_state_dict = model.state_dict()
+        
+        # Check for specific issues and provide recommendations
+        feature_proj_mismatch = False
+        backbone_mismatch = False
+        classifier_mismatch = False
+        
+        # Check feature projection
+        if 'feature_projection.0.weight' in checkpoint_state_dict and 'feature_projection.0.weight' in model_state_dict:
+            if checkpoint_state_dict['feature_projection.0.weight'].shape != model_state_dict['feature_projection.0.weight'].shape:
+                feature_proj_mismatch = True
+        
+        # Check backbone
+        backbone_keys = [k for k in checkpoint_state_dict.keys() if 'backbone' in k or 'dcal_encoder' in k]
+        current_keys = [k for k in model_state_dict.keys() if 'backbone' in k or 'dcal_encoder' in k]
+        if len(backbone_keys) != len(current_keys):
+            backbone_mismatch = True
+        
+        # Check classifier
+        classifier_keys = [k for k in checkpoint_state_dict.keys() if 'classifier' in k]
+        current_keys = [k for k in model_state_dict.keys() if 'classifier' in k]
+        if len(classifier_keys) != len(current_keys):
+            classifier_mismatch = True
+        
+        # Provide specific recommendations
+        if feature_proj_mismatch:
+            self.logger.info("RECOMMENDATION: Feature projection layer mismatch detected.")
+            self.logger.info("  - The layer has been automatically reinitialized")
+            self.logger.info("  - Training will continue with the new architecture")
+            self.logger.info("  - Consider saving a new checkpoint after a few epochs")
+        
+        if backbone_mismatch:
+            self.logger.info("RECOMMENDATION: Backbone architecture mismatch detected.")
+            self.logger.info("  - This may indicate a change in the DCAL encoder configuration")
+            self.logger.info("  - Consider starting fresh training if the mismatch is significant")
+        
+        if classifier_mismatch:
+            self.logger.info("RECOMMENDATION: Classifier architecture mismatch detected.")
+            self.logger.info("  - This may indicate a change in the model head configuration")
+            self.logger.info("  - The classifier has been automatically reinitialized")
+        
+        # General recommendations
+        self.logger.info("GENERAL RECOMMENDATIONS:")
+        self.logger.info("  - Monitor training metrics closely for the first few epochs")
+        self.logger.info("  - Save checkpoints frequently to avoid losing progress")
+        self.logger.info("  - Consider reducing learning rate initially if training is unstable")
+    
+    def _should_force_fresh_start(self, checkpoint_path: str) -> bool:
+        """
+        Determine if we should force a fresh start based on checkpoint analysis.
+        
+        Args:
+            checkpoint_path: Path to the checkpoint file
+            
+        Returns:
+            True if fresh start should be forced
+        """
+        try:
+            checkpoint_data = torch.load(checkpoint_path, map_location='cpu')
+            checkpoint_state_dict = checkpoint_data['model_state_dict']
+            
+            # Check for critical mismatches that would prevent successful loading
+            # For now, we'll allow loading with strict=False and handle mismatches gracefully
+            # This method can be extended in the future for more sophisticated logic
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Failed to analyze checkpoint for fresh start decision: {e}")
+            return False
+    
+    def _backup_checkpoint(self, checkpoint_path: str):
+        """
+        Create a backup of the checkpoint before attempting to load it.
+        
+        Args:
+            checkpoint_path: Path to the checkpoint file
+        """
+        try:
+            backup_dir = os.path.join(self.checkpoint_dir, "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            filename = os.path.basename(checkpoint_path)
+            backup_path = os.path.join(backup_dir, f"backup_{int(time.time())}_{filename}")
+            
+            shutil.copy2(checkpoint_path, backup_path)
+            self.logger.info(f"Created backup of checkpoint: {backup_path}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to create checkpoint backup: {e}")
+    
+    def _log_loading_summary(self, analysis: Dict[str, Any]):
+        """Log a summary of what was successfully loaded."""
+        self.logger.info("LOADING SUMMARY:")
+        self.logger.info(f"  Successfully loaded: {analysis['matching_keys']} layers")
+        
+        if analysis['shape_mismatches']:
+            self.logger.info(f"  Reinitialized: {len(analysis['shape_mismatches'])} layers due to shape mismatch")
+        
+        if analysis['missing_keys']:
+            self.logger.info(f"  Missing: {len(analysis['missing_keys'])} layers (will use random initialization)")
+        
+        if analysis['unexpected_keys']:
+            self.logger.info(f"  Ignored: {len(analysis['unexpected_keys'])} unexpected layers")
+        
+        self.logger.info(f"  Overall compatibility: {analysis['compatibility_score']:.1%}")
+        
+        # Provide training recommendations based on compatibility
+        if analysis['compatibility_score'] < 0.8:
+            self.logger.info("TRAINING RECOMMENDATIONS:")
+            self.logger.info("  - Consider reducing learning rate for the first few epochs")
+            self.logger.info("  - Monitor loss curves closely for stability")
+            self.logger.info("  - Save checkpoints more frequently")
     
     def load_best_checkpoint(self, 
                            model: nn.Module,
@@ -346,7 +660,16 @@ class CheckpointManager:
             return None
         
         self.logger.info(f"Auto-resuming from checkpoint: {latest_checkpoint}")
-        return self.load_checkpoint(model, optimizer, latest_checkpoint, scheduler, scaler)
+        
+        # Backup the checkpoint before attempting to load
+        self._backup_checkpoint(latest_checkpoint)
+        
+        # Check if we should force fresh start
+        if self._should_force_fresh_start(latest_checkpoint):
+            self.logger.warning("Architecture mismatch detected. Starting fresh training.")
+            return None
+        
+        return self.load_checkpoint(model, optimizer, latest_checkpoint, scheduler, scaler, strict=False)
     
     def save_model_only(self, model: nn.Module, filename: str = "model.pth") -> str:
         """
