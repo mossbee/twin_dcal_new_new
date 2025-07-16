@@ -454,32 +454,34 @@ class DCALLoss(nn.Module):
         Returns:
             Diversity loss
         """
-        if len(attention_maps) < 2:
+        # Flatten all attention tensors from all lists into a single list
+        all_attentions = []
+        for v in attention_maps.values():
+            if isinstance(v, list):
+                all_attentions.extend(v)
+            elif isinstance(v, torch.Tensor):
+                all_attentions.append(v)
+        if len(all_attentions) < 2:
             print("[DEBUG] attention_maps is empty or has only one entry in _compute_diversity_loss!")
             device = torch.device("cpu")
-            if len(attention_maps) > 0:
-                device = list(attention_maps.values())[0].device
+            if len(all_attentions) > 0:
+                device = all_attentions[0].device
             print("[DEBUG] Returning zero diversity loss on device:", device)
             return torch.tensor(0.0, device=device)
-        
         diversity_loss = 0
         count = 0
-        
-        attention_list = list(attention_maps.values())
-        for i in range(len(attention_list)):
-            for j in range(i + 1, len(attention_list)):
-                # Encourage different attention patterns
+        for i in range(len(all_attentions)):
+            for j in range(i + 1, len(all_attentions)):
                 similarity = F.cosine_similarity(
-                    attention_list[i].flatten(1),
-                    attention_list[j].flatten(1),
+                    all_attentions[i].flatten(1),
+                    all_attentions[j].flatten(1),
                     dim=1
                 )
                 diversity_loss += torch.mean(similarity)
                 count += 1
-        
         if count > 0:
             return diversity_loss / count
         else:
-            device = attention_list[0].device
+            device = all_attentions[0].device
             print("[DEBUG] Returning zero diversity loss (no pairs) on device:", device)
             return torch.tensor(0.0, device=device) 
