@@ -97,9 +97,12 @@ def load_config(config_path: str, args: argparse.Namespace) -> 'Config':
     
     # Debug mode
     if args.debug:
-        config_dict['training']['epochs'] = 2
+        config_dict['training']['epochs'] = 5
         config_dict['training']['batch_size'] = 4
         config_dict['data']['debug'] = True
+    elif config_dict['data'].get('debug', False):
+        # If debug is set in config file, also reduce epochs
+        config_dict['training']['epochs'] = 5
     
     # Convert back to Config object
     return Config.from_dict(config_dict)
@@ -172,6 +175,20 @@ def create_data_loaders(config: dict) -> tuple:
         hard_negative_ratio=data_config['hard_negative_ratio'],
         soft_negative_ratio=data_config['soft_negative_ratio']
     )
+    
+    # Debug mode: use smaller subset
+    if data_config.get('debug', False):
+        from torch.utils.data import Subset
+        import numpy as np
+        
+        # Use only 1000 samples for training and 200 for validation
+        train_indices = np.random.choice(len(train_dataset), min(1000, len(train_dataset)), replace=False)
+        val_indices = np.random.choice(len(val_dataset), min(200, len(val_dataset)), replace=False)
+        
+        train_dataset = Subset(train_dataset, train_indices)
+        val_dataset = Subset(val_dataset, val_indices)
+        
+        print(f"[DEBUG MODE] Using {len(train_dataset)} training samples and {len(val_dataset)} validation samples")
     
     # Create data loaders
     train_loader = DataLoader(
