@@ -126,6 +126,8 @@ class SystemConfig:
     tracking: str = "wandb"  # mlflow, wandb, none
     experiment_name: str = "dcal_twin_verification_july"
     run_name: Optional[str] = None
+    wandb_entity: Optional[str] = None
+    wandb_project: Optional[str] = None
     
     # Checkpointing
     checkpoint_dir: str = "./checkpoints"
