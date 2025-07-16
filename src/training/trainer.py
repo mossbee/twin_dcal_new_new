@@ -58,12 +58,12 @@ class Trainer:
         Args:
             model: SiameseDCAL model
             train_loader: Training data loader
-            val_loader: Validation data loader (optional)
+            val_loader: Validation data loader
             loss_fn: Loss function
             optimizer: Optimizer
             scheduler: Learning rate scheduler
-            device: Device to use
-            config: Configuration dictionary
+            device: Device to train on
+            config: Training configuration
             logger: Logger instance
             log_dir: Directory for logs
             checkpoint_dir: Directory for checkpoints
@@ -73,13 +73,14 @@ class Trainer:
         self.val_loader = val_loader
         self.device = device
         self.config = config or {}
-        self.logger = logger or self._setup_logger()
         self.log_dir = log_dir
         self.checkpoint_dir = checkpoint_dir
         
-        # Ensure directories exist
+        # Ensure directories exist before setting up logger
         os.makedirs(log_dir, exist_ok=True)
         os.makedirs(checkpoint_dir, exist_ok=True)
+        
+        self.logger = logger or self._setup_logger()
         
         # Setup model and training components
         self._setup_model()
@@ -500,13 +501,19 @@ def create_trainer(
     # Setup device
     device = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
     
+    # Setup directories
+    log_dir = config.get('log_dir', './logs')
+    checkpoint_dir = config.get('checkpoint_dir', './checkpoints')
+    
     # Create trainer
     trainer = Trainer(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         device=device,
-        config=config
+        config=config,
+        log_dir=log_dir,
+        checkpoint_dir=checkpoint_dir
     )
     
     return trainer 
