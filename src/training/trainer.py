@@ -210,40 +210,19 @@ class Trainer:
         num_batches = len(self.train_loader)
         gradient_accumulation_steps = self.config.get('gradient_accumulation_steps', 1)
         
-        # Profiling variables
-        profile_batches = 10
-        data_time = 0
-        forward_time = 0
-        loss_time = 0
-        backward_time = 0
-        metrics_time = 0
-        
         # Progress bar
         pbar = tqdm(self.train_loader, desc=f"Epoch {self.epoch}")
         
         batch_start_time = time.time()
         
         for batch_idx, batch in enumerate(pbar):
-            # Profile data loading time
-            if batch_idx < profile_batches:
-                data_end_time = time.time()
-                data_time += data_end_time - batch_start_time
-            
             # Move batch to device
             img1, img2, labels = batch
             img1, img2, labels = img1.to(self.device), img2.to(self.device), labels.to(self.device)
             
             # Forward pass
-            if batch_idx < profile_batches:
-                forward_start_time = time.time()
-            
             with autocast('cuda', enabled=self.use_amp):
                 output = self.model(img1, img2, return_attention=False)
-                
-                if batch_idx < profile_batches:
-                    forward_end_time = time.time()
-                    forward_time += forward_end_time - forward_start_time
-                    loss_start_time = time.time()
                 
                 # Compute loss
                 loss, loss_components = self.loss_fn(
@@ -257,30 +236,16 @@ class Trainer:
                 # Scale loss for gradient accumulation
                 loss = loss / gradient_accumulation_steps
             
-            if batch_idx < profile_batches:
-                loss_end_time = time.time()
-                loss_time += loss_end_time - loss_start_time
-                backward_start_time = time.time()
-            
             # Backward pass
             if self.use_amp:
                 self.scaler.scale(loss).backward()
             else:
                 loss.backward()
             
-            if batch_idx < profile_batches:
-                backward_end_time = time.time()
-                backward_time += backward_end_time - backward_start_time
-                metrics_start_time = time.time()
-            
             # Update metrics less frequently
             if batch_idx % 10 == 0:
                 similarity_scores = output['similarity']
                 self.metrics_tracker.update(labels, similarity_scores)
-            
-            if batch_idx < profile_batches:
-                metrics_end_time = time.time()
-                metrics_time += metrics_end_time - metrics_start_time
             
             # Gradient accumulation
             if (batch_idx + 1) % gradient_accumulation_steps == 0:
@@ -306,27 +271,8 @@ class Trainer:
                     'lr': f'{self.optimizer.param_groups[0]["lr"]:.2e}'
                 })
             
-            # Print profiling results after first 10 batches
-            if batch_idx == profile_batches - 1:
-                avg_data_time = data_time / profile_batches
-                avg_forward_time = forward_time / profile_batches
-                avg_loss_time = loss_time / profile_batches
-                avg_backward_time = backward_time / profile_batches
-                avg_metrics_time = metrics_time / profile_batches
-                total_avg_time = avg_data_time + avg_forward_time + avg_loss_time + avg_backward_time + avg_metrics_time
-                
-                print(f"\n[PROFILING] Average times per batch (first {profile_batches} batches):")
-                print(f"  Data loading: {avg_data_time:.3f}s ({avg_data_time/total_avg_time*100:.1f}%)")
-                print(f"  Model forward: {avg_forward_time:.3f}s ({avg_forward_time/total_avg_time*100:.1f}%)")
-                print(f"  Loss computation: {avg_loss_time:.3f}s ({avg_loss_time/total_avg_time*100:.1f}%)")
-                print(f"  Backward pass: {avg_backward_time:.3f}s ({avg_backward_time/total_avg_time*100:.1f}%)")
-                print(f"  Metrics update: {avg_metrics_time:.3f}s ({avg_metrics_time/total_avg_time*100:.1f}%)")
-                print(f"  Total per batch: {total_avg_time:.3f}s")
-                print(f"  Expected speed: {1/total_avg_time:.2f} it/s\n")
-            
             # Start timing for next batch
-            if batch_idx < profile_batches:
-                batch_start_time = time.time()
+            batch_start_time = time.time()
         
         # Compute epoch metrics
         epoch_metrics = self.metrics_tracker.compute_metrics()
