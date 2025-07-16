@@ -123,8 +123,8 @@ class SystemConfig:
     distributed: bool = False
     
     # Tracking and logging
-    tracking: str = "none"  # mlflow, wandb, none
-    experiment_name: str = "dcal_twin_verification"
+    tracking: str = "wandb"  # mlflow, wandb, none
+    experiment_name: str = "dcal_twin_verification_july"
     run_name: Optional[str] = None
     
     # Checkpointing
