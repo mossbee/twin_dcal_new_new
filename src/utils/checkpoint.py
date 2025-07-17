@@ -247,7 +247,7 @@ class CheckpointManager:
             Loaded checkpoint data
         """
         try:
-            checkpoint_data = torch.load(checkpoint_path, map_location='cpu')
+            checkpoint_data = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
             
             # Load model state
             try:
