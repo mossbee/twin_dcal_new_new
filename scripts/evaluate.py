@@ -63,6 +63,8 @@ def parse_args():
     # Device
     parser.add_argument('--device', type=str, default='cuda',
                        help='Device to use (cuda/cpu)')
+    parser.add_argument('--hard-pairs-only', action='store_true',
+                       help='Evaluate only on hard pairs (same person or twin persons)')
     
     return parser.parse_args()
 
@@ -129,7 +131,8 @@ def create_test_loader(config: dict, args: argparse.Namespace) -> DataLoader:
         twin_pairs_path=args.test_twin_pairs,
         data_root=args.data_root,
         transform=transform,
-        same_person_only=False  # Include all pairs for comprehensive evaluation
+        same_person_only=False,
+        hard_pairs_only=getattr(args, 'hard_pairs_only', False)
     )
     
     # Create data loader

@@ -285,7 +285,8 @@ class TwinVerificationDataset(Dataset):
         twin_pairs_path: str,
         data_root: str = "",
         transform=None,
-        same_person_only: bool = False
+        same_person_only: bool = False,
+        hard_pairs_only: bool = False
     ):
         """
         Initialize evaluation dataset.
@@ -296,10 +297,12 @@ class TwinVerificationDataset(Dataset):
             data_root: Root directory for image paths
             transform: Data transform to apply
             same_person_only: If True, only generate same-person pairs
+            hard_pairs_only: If True, only generate same-person or twin-person pairs
         """
         self.data_root = data_root
         self.transform = transform
         self.same_person_only = same_person_only
+        self.hard_pairs_only = hard_pairs_only
         
         # Load dataset info
         with open(dataset_info_path, 'r') as f:
@@ -308,6 +311,11 @@ class TwinVerificationDataset(Dataset):
         # Load twin pairs
         with open(twin_pairs_path, 'r') as f:
             self.twin_pairs = json.load(f)
+        # Build twin lookup for fast check
+        self.twin_lookup = set()
+        for a, b in self.twin_pairs:
+            self.twin_lookup.add((a, b))
+            self.twin_lookup.add((b, a))
         
         # Generate all evaluation pairs
         self.pairs = self._generate_evaluation_pairs()
@@ -325,19 +333,35 @@ class TwinVerificationDataset(Dataset):
                     for i in range(len(image_paths)):
                         for j in range(i + 1, len(image_paths)):
                             pairs.append((image_paths[i], image_paths[j], 1, person_id, person_id))
+        elif self.hard_pairs_only:
+            # Only same-person or twin-person pairs
+            # Same-person pairs
+            for person_id, image_paths in self.dataset_info.items():
+                if len(image_paths) > 1:
+                    for i in range(len(image_paths)):
+                        for j in range(i + 1, len(image_paths)):
+                            pairs.append((image_paths[i], image_paths[j], 1, person_id, person_id))
+            # Twin-person pairs
+            for a, b in self.twin_pairs:
+                if a in self.dataset_info and b in self.dataset_info:
+                    for img1 in self.dataset_info[a]:
+                        for img2 in self.dataset_info[b]:
+                            pairs.append((img1, img2, 0, a, b))
+                        
+                    for img1 in self.dataset_info[b]:
+                        for img2 in self.dataset_info[a]:
+                            pairs.append((img1, img2, 0, b, a))
         else:
             # All possible pairs
             all_images = []
             for person_id, image_paths in self.dataset_info.items():
                 for img_path in image_paths:
                     all_images.append((img_path, person_id))
-            
             # Generate all pairs
             for i in range(len(all_images)):
                 for j in range(i + 1, len(all_images)):
                     img1_path, person1 = all_images[i]
                     img2_path, person2 = all_images[j]
-                    
                     label = 1 if person1 == person2 else 0
                     pairs.append((img1_path, img2_path, label, person1, person2))
         
