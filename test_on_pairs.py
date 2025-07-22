@@ -11,7 +11,7 @@ from src.models.dcal_core import DCALEncoder
 CONFIG_PATH = "configs/kaggle_config.yaml"
 TEST_PAIRS_PATH = "data/test_twin_pairs.json"
 TEST_INFO_PATH = "data/test_dataset_infor.json"
-CHECKPOINT_PATH = "checkpoints/best_model.pth"  # <-- Set your checkpoint path here
+CHECKPOINT_PATH = "/kaggle/input/nd-twin/checkpoint_epoch_0020.pth"  # <-- Set your checkpoint path here
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # === LOAD CONFIG ===
