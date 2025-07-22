@@ -104,7 +104,7 @@ def load_model(model_path: str, config: dict, device: str) -> SiameseDCAL:
     """Load trained model from checkpoint."""
     model = create_model(config)
     # Load checkpoint
-    checkpoint = torch.load(model_path, map_location='cpu')
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
     # Handle different checkpoint formats
     if 'model_state_dict' in checkpoint:
         state_dict = checkpoint['model_state_dict']
