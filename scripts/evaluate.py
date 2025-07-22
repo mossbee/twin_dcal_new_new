@@ -82,7 +82,7 @@ def load_model(model_path: str, config: dict, device: str) -> SiameseDCAL:
         patch_size=patch_size,
         in_channels=3,
         embed_dim=model_config['embed_dim'],
-        depth=depth,
+        num_layers=depth,
         num_heads=model_config['num_heads'],
         mlp_ratio=mlp_ratio,
         dropout=model_config['dropout'],
