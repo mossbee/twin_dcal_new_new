@@ -67,67 +67,54 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_model(model_path: str, config: dict, device: str) -> SiameseDCAL:
-    """Load trained model from checkpoint."""
+def create_model(config: dict) -> SiameseDCAL:
     model_config = config['model']
-    
-    # Create backbone
-    # patch_size fallback: try model_config, else data config
-    patch_size = model_config.get('patch_size', config['data'].get('patch_size', 16))
-    # Use 'depth' if present, else fallback to 'num_layers'
-    depth = model_config.get('depth', model_config.get('num_layers', 12))
-    mlp_ratio = model_config.get('mlp_ratio', 4)
-    backbone = VisionTransformer(
-        img_size=config['data']['image_size'],
-        patch_size=patch_size,
-        in_channels=3,
-        embed_dim=model_config['embed_dim'],
-        num_layers=depth,
-        num_heads=model_config['num_heads'],
-        mlp_ratio=mlp_ratio,
-        dropout=model_config['dropout'],
-        pretrained=False  # Don't load pretrained weights for evaluation
-    )
-    
-    # Create DCAL encoder
+    data_config = config['data']
+    dcal_config = config['dcal']
+    # Use 'num_layers' for VisionTransformer, fallback to 'depth' if needed
+    num_layers = model_config.get('num_layers', model_config.get('depth', 12))
+    # Prepare DCALEncoder arguments
     dcal_encoder = DCALEncoder(
-        backbone=backbone,
-        embed_dim=model_config['embed_dim'],
-        num_heads=model_config['num_heads'],
-        num_sa_blocks=model_config['num_sa_blocks'],
-        num_glca_blocks=model_config['num_glca_blocks'],
-        num_pwca_blocks=model_config['num_pwca_blocks'],
-        local_ratio_fgvc=model_config['local_ratio_fgvc'],
-        local_ratio_reid=model_config['local_ratio_reid'],
-        dropout=model_config['dropout']
+        backbone_config=model_config.get('backbone', 'vit_base_patch16_224'),
+        num_sa_blocks=dcal_config.get('num_sa_blocks', 12),
+        num_glca_blocks=dcal_config.get('num_glca_blocks', 1),
+        num_pwca_blocks=dcal_config.get('num_pwca_blocks', 12),
+        local_ratio=dcal_config.get('local_ratio_fgvc', 0.1),
+        embed_dim=model_config.get('embed_dim', 768),
+        num_heads=model_config.get('num_heads', 12),
+        mlp_ratio=model_config.get('mlp_ratio', 4.0),
+        dropout=model_config.get('dropout', 0.1),
+        pretrained=model_config.get('pretrained', True),
+        pretrained_path=model_config.get('pretrained_path', None),
+        num_layers=num_layers,
+        use_dynamic_loss=dcal_config.get('use_dynamic_loss', True)
     )
-    
-    # Create Siamese DCAL model
     model = SiameseDCAL(
         dcal_encoder=dcal_encoder,
-        similarity_function=model_config['similarity_function'],
-        feature_dim=model_config['feature_dim'],
-        dropout=model_config['dropout'],
-        temperature=model_config['temperature'],
-        learnable_temperature=model_config['learnable_temperature']
+        similarity_function=model_config.get('similarity_function', 'cosine'),
+        feature_dim=model_config.get('embed_dim', 768),
+        dropout=model_config.get('dropout', 0.1),
+        temperature=model_config.get('temperature', 0.07),
+        learnable_temperature=model_config.get('learnable_temperature', True)
     )
-    
+    return model
+
+
+def load_model(model_path: str, config: dict, device: str) -> SiameseDCAL:
+    """Load trained model from checkpoint."""
+    model = create_model(config)
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location='cpu')
-    
     # Handle different checkpoint formats
     if 'model_state_dict' in checkpoint:
         state_dict = checkpoint['model_state_dict']
     else:
         state_dict = checkpoint
-    
     # Load model state
     model.load_state_dict(state_dict, strict=False)
-    
     # Move to device
     model = model.to(device)
     model.eval()
-    
     return model
 
 
