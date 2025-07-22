@@ -72,14 +72,16 @@ def load_model(model_path: str, config: dict, device: str) -> SiameseDCAL:
     model_config = config['model']
     
     # Create backbone
+    # patch_size fallback: try model_config, else data config
+    patch_size = model_config.get('patch_size', config['data'].get('patch_size', 16))
     backbone = VisionTransformer(
         img_size=config['data']['image_size'],
-        patch_size=model_config['patch_size'],
+        patch_size=patch_size,
         in_channels=3,
         embed_dim=model_config['embed_dim'],
         depth=model_config['depth'],
         num_heads=model_config['num_heads'],
-        mlp_ratio=model_config['mlp_ratio'],
+        mlp_ratio=model_config.get('mlp_ratio', 4),
         dropout=model_config['dropout'],
         pretrained=False  # Don't load pretrained weights for evaluation
     )
