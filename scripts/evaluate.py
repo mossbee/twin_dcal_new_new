@@ -377,6 +377,29 @@ def main():
     
     logger.info(f"Evaluation completed. Results saved to: {args.output_dir}")
 
+    # --- Hard Pair (Twin) Evaluation ---
+    # Load twin pairs for hard pair evaluation
+    with open(args.test_twin_pairs, 'r') as f:
+        twin_pairs = json.load(f)
+    # Ensure tuple format for TwinSpecificEvaluator
+    twin_pairs = [tuple(pair) for pair in twin_pairs]
+
+    from src.training.verification import TwinSpecificEvaluator
+    twin_evaluator = TwinSpecificEvaluator(twin_pairs)
+    # Evaluate only on hard pairs (different people from same twin pair)
+    hard_pair_metrics = twin_evaluator.evaluate_twin_difficulty(
+        similarities=np.array(results['similarities']),
+        labels=np.array(results['labels']),
+        person_pairs=[(p1, p2) for p1, p2 in results['person_pairs']],
+        threshold=report['threshold'] if 'threshold' in report else 0.5
+    )
+    if 'different_twins' in hard_pair_metrics:
+        print("\n=== Hard Pair (Twin) Verification Metrics ===")
+        for metric, value in hard_pair_metrics['different_twins'].items():
+            print(f"{metric}: {value:.4f}")
+    else:
+        print("\nNo hard (twin) pairs found in the test set.")
+
 
 if __name__ == '__main__':
     main() 
