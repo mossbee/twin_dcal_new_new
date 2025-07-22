@@ -142,6 +142,16 @@ def calculate_verification_metrics(
     metrics = {}
     
     # Basic metrics
+    labels = np.array(labels)
+    scores = np.array(scores)
+    # Check for both positive and negative samples
+    if np.all(labels == 0) or np.all(labels == 1):
+        print("[Warning] Only one class present in y_true. Metrics like EER, AUC, and accuracy are undefined.")
+        metrics['roc_auc'] = None
+        metrics['eer'] = None
+        metrics['accuracy'] = None
+        # Optionally: set other metrics to None as well
+        return metrics
     metrics['roc_auc'] = calculate_roc_auc(labels, scores)
     metrics['eer'], metrics['eer_threshold'] = calculate_eer(labels, scores)
     

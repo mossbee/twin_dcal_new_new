@@ -398,9 +398,12 @@ def main():
     # Print main metrics
     print("\n=== Main Verification Metrics ===")
     try:
-        print(f"AUC: {report['analysis']['roc_auc']:.4f}")
-        print(f"EER: {report['analysis']['eer']:.4f}")
-        print(f"Accuracy: {report['analysis']['accuracy']:.4f}")
+        auc = report['analysis']['roc_auc']
+        eer = report['analysis']['eer']
+        acc = report['analysis']['accuracy']
+        print(f"AUC: {auc:.4f}" if auc is not None else "AUC: N/A")
+        print(f"EER: {eer:.4f}" if eer is not None else "EER: N/A")
+        print(f"Accuracy: {acc:.4f}" if acc is not None else "Accuracy: N/A")
     except Exception as e:
         print(f"[Warning] Could not compute main metrics: {e}")
 
@@ -408,12 +411,12 @@ def main():
     if 'different_twins' in hard_pair_metrics:
         print("\n=== Hard Pair (Twin) Verification Metrics ===")
         try:
-            if 'roc_auc' in hard_pair_metrics['different_twins']:
-                print(f"AUC: {hard_pair_metrics['different_twins']['roc_auc']:.4f}")
-            if 'eer' in hard_pair_metrics['different_twins']:
-                print(f"EER: {hard_pair_metrics['different_twins']['eer']:.4f}")
-            if 'accuracy' in hard_pair_metrics['different_twins']:
-                print(f"Accuracy: {hard_pair_metrics['different_twins']['accuracy']:.4f}")
+            auc = hard_pair_metrics['different_twins'].get('roc_auc', None)
+            eer = hard_pair_metrics['different_twins'].get('eer', None)
+            acc = hard_pair_metrics['different_twins'].get('accuracy', None)
+            print(f"AUC: {auc:.4f}" if auc is not None else "AUC: N/A")
+            print(f"EER: {eer:.4f}" if eer is not None else "EER: N/A")
+            print(f"Accuracy: {acc:.4f}" if acc is not None else "Accuracy: N/A")
         except Exception as e:
             print(f"[Warning] Could not compute hard pair metrics: {e}")
     else:
