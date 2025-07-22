@@ -395,6 +395,30 @@ def main():
     else:
         print("\nNo hard (twin) pairs found in the test set.")
 
+    # Print main metrics
+    print("\n=== Main Verification Metrics ===")
+    try:
+        print(f"AUC: {report['analysis']['roc_auc']:.4f}")
+        print(f"EER: {report['analysis']['eer']:.4f}")
+        print(f"Accuracy: {report['analysis']['accuracy']:.4f}")
+    except Exception as e:
+        print(f"[Warning] Could not compute main metrics: {e}")
+
+    # Print hard pair metrics (if available)
+    if 'different_twins' in hard_pair_metrics:
+        print("\n=== Hard Pair (Twin) Verification Metrics ===")
+        try:
+            if 'roc_auc' in hard_pair_metrics['different_twins']:
+                print(f"AUC: {hard_pair_metrics['different_twins']['roc_auc']:.4f}")
+            if 'eer' in hard_pair_metrics['different_twins']:
+                print(f"EER: {hard_pair_metrics['different_twins']['eer']:.4f}")
+            if 'accuracy' in hard_pair_metrics['different_twins']:
+                print(f"Accuracy: {hard_pair_metrics['different_twins']['accuracy']:.4f}")
+        except Exception as e:
+            print(f"[Warning] Could not compute hard pair metrics: {e}")
+    else:
+        print("\nNo hard (twin) pairs found in the test set.")
+
 
 if __name__ == '__main__':
     main() 
