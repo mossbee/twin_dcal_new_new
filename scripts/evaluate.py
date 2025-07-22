@@ -33,7 +33,7 @@ def parse_args():
     # Model and checkpoint
     parser.add_argument('--model-path', type=str, required=True,
                        help='Path to trained model checkpoint')
-    parser.add_argument('--config', type=str, default='configs/local_config.yaml',
+    parser.add_argument('--config', type=str, default='configs/kaggle_config.yaml',
                        help='Path to configuration file')
     
     # Data parameters
